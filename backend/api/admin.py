@@ -7,3 +7,5 @@ admin.site.register(Room)
 admin.site.register(Sensor)
 admin.site.register(File)
 admin.site.register(SensorData)
+
+
