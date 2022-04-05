@@ -87,7 +87,7 @@ class UploadFileAPIView(generics.CreateAPIView):
          #   return Response('File was already uploaded', status=status.HTTP_400_BAD_REQUEST)
         if not visualization.status == 'room':
             return Response({'Detail: File already uploaded or upload criteria not met'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         if 'file' not in request.FILES:
             return Response(status=status.HTTP_400_BAD_REQUEST)
         elif not serializer_class.is_valid():

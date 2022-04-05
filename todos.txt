@@ -1,0 +1,23 @@
+TODOS:
+
+FRONTEND 
+    [X] Room list creation
+    [ ] Make API Calls from Room list component
+    [ ] Sensors room placement + room selection logic 
+    [ ] Make API Calls from Sensor selection list component
+    [ ] Add Visualization creation validation 
+    [ ] FIX: Router error when null 
+    [ ] Fetch call to Visualizations endpoint to  router list
+    [ ] Visualization component make fetch call 
+    [ ] Visualization add room selection to graph
+    [ ] Visualization component make visualization controller next to graphs
+    [ ] Create general temperature schema
+
+BACKEND:
+    [ ] Edit database models
+    [ ] Multiple rooms creation
+    [ ] Add date filtering to data endpoint
+    [ ] Create misc table
+    [ ] Many sensor update endpoint
+    [ ] Query for resampling first sensor from given time interval
+    [ ] Connect visualization into final visualization
