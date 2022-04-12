@@ -1,35 +1,42 @@
 from rest_framework import serializers
 
-from api.fields import RelatedFieldAlternative
 from api.models import Visualization, Room, Sensor, File
 
 
 class VisualizationSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Visualization
-        fields = ['id', 'name', 'description', 'status', 'owner']
+        fields = ["id", "name", "description", "status", "owner"]
 
 
 class RoomSerializer(serializers.ModelSerializer):
-    def __init__(self, *args, **kwargs):
-        many = kwargs.pop('many', True)
-        super(RoomSerializer, self).__init__(many=many, *args, **kwargs)
-
     class Meta:
         model = Room
-        fields = ['x0', 'y0', 'x1', 'y1']
-        read_only_fields = ['visualization']
+        fields = ["id", "width", "height"]
+        read_only_fields = ["visualization"]
+
+
+from django.core.exceptions import ValidationError
+
+
+def validate_id_exists(value):
+    if not Sensor.objects.filter(pk=value).exists():
+        raise ValidationError(f'Invalid pk "{value}" - object does not exist.')
 
 
 class SensorSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(min_value=1, validators=[validate_id_exists])
+    x = serializers.IntegerField(min_value=0)
+    y = serializers.IntegerField(min_value=0)
 
     class Meta:
         model = Sensor
-        fields = ['id', 'visualization', 'name', 'x', 'y']
+        fields = ["id", "room", "name", "x", "y"]
+        read_only_fields = ["visualization", "name"]
+        extra_kwargs = {"room": {"required": True}}
+
 
 class VisualizationField(serializers.Field):
-
     def to_representation(self, value):
         return VisualizationSerializer(value).data
 
@@ -46,7 +53,27 @@ class FileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = File
-        fields = ['visualization', 'file']
+        fields = ["visualization", "file"]
 
 
+AGGREGATE_CHOICES = (
+    ("min", "minimum"),
+    ("max", "maximum"),
+    ("avg", "average"),
+    ("none", "none"),
+)
 
+INTERVAL_CHOICES = (
+    ("month", "month"),
+    ("week", "week"),
+    ("day", "day"),
+    ("hour", "hour"),
+    ("minute", "minute"),
+)
+
+
+class SensorDataSerializer(serializers.Serializer):
+    gtd = serializers.DateTimeField()
+    ltd = serializers.DateTimeField()
+    aggregate = serializers.ChoiceField(choices=AGGREGATE_CHOICES)
+    interval = serializers.ChoiceField(choices=INTERVAL_CHOICES)
