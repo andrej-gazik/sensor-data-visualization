@@ -12,8 +12,12 @@ class VisualizationSerializer(serializers.ModelSerializer):
 class RoomSerializer(serializers.ModelSerializer):
     class Meta:
         model = Room
-        fields = ["id", "width", "height"]
+        fields = ["id", "width", "name", "height"]
         read_only_fields = ["visualization"]
+        extra_kwargs = {"name": {"required": True},
+                        "width": {"required": True},
+                        "height": {"required": True},
+                        }
 
 
 from django.core.exceptions import ValidationError

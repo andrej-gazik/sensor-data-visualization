@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Dialog from '@mui/material/Dialog';
@@ -22,18 +22,41 @@ import Typography from '@mui/material/Typography';
 import FolderIcon from '@mui/icons-material/Folder';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Stack } from '@mui/material';
+import API from '../api';
+import { useParams } from 'react-router-dom';
+import { set } from 'date-fns';
 
 const RoomCreator = () => {
+	const { id } = useParams();
 	const {
 		register,
 		handleSubmit,
 		formState: { errors },
 	} = useForm();
 
+	useEffect(() => {
+		API.get(`/visualization/${id}/room/`)
+			.then((res) => res.data)
+			.then((data) => {
+				console.log(data);
+				setRooms(data);
+			})
+			.catch((err) => {
+				console.log(err);
+			});
+	}, []);
+
 	// Add item into
 	const onSubmit = (data) => {
-		console.log(data);
-		setRooms([...rooms, data]);
+		API.post(`/visualization/${id}/room/`, data)
+			.then((res) => res.data)
+			.then((data) => {
+				console.log(data);
+				setRooms([...rooms, data]);
+			})
+			.catch((err) => {
+				console.log(err);
+			});
 	};
 
 	const [open, setOpen] = React.useState(false);
@@ -55,11 +78,18 @@ const RoomCreator = () => {
 		return value.replace(/[^0-9]/g, '');
 	};
 
-	const handleRoomDelete = (index) => {
+	const handleRoomDelete = (index, room) => {
 		const array = [...rooms];
-
+		console.log(room.id);
 		array.splice(index, 1);
 		setRooms(array);
+		API.delete(`/visualization/${id}/room/${room.id}`)
+			.then((res) => {
+				console.log(res);
+			})
+			.catch((err) => {
+				console.log(err);
+			});
 	};
 
 	return (
@@ -150,7 +180,7 @@ const RoomCreator = () => {
 						key={index}
 						secondaryAction={
 							<IconButton
-								onClick={() => handleRoomDelete(index)}
+								onClick={() => handleRoomDelete(index, room)}
 								edge='end'
 								aria-label='delete'
 							>
@@ -165,9 +195,6 @@ const RoomCreator = () => {
 					</ListItem>
 				))}
 			</List>
-			<Button variant='contained' onClick={handleSubmit}>
-				Submit all rooms
-			</Button>
 		</div>
 	);
 };

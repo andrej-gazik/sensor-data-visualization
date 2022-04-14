@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -22,13 +22,40 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
+import API from '../api';
+import axios from 'axios';
+import { useForm } from 'react-hook-form';
+import { useLocation, useNavigate, useParams } from 'react-router';
 
 export default function Sidebar() {
-	const [id, setId] = React.useState(null);
-	const [open, setOpen] = React.useState(false);
+	const { id } = useParams();
+	const { pathname } = useLocation();
+	const { navigate } = useNavigate();
+
+	const [selected, setSelected] = useState('');
+	const [open, setOpen] = useState(false);
+	const [data, setData] = useState([]);
+
+	const {
+		register,
+		handleSubmit,
+		formState: { errors },
+	} = useForm();
+
+	const onSubmit = (data) => {
+		console.log(data);
+		console.log(API.baseUrl);
+		API.post('/visualization/', data)
+			.then((res) => console.log(res))
+			.catch((err) => console.log(err));
+	};
 
 	const handleChange = (event) => {
-		setId(event.target.value);
+		setSelected(event.target.value);
+		// console.log(pathname);
+
+		const newPath = pathname.replace(/[0-9]/g, selected.id);
+		// console.log(newPath);
 	};
 
 	const handleDialogOpen = () => {
@@ -42,6 +69,19 @@ export default function Sidebar() {
 	const handleDialogUpload = () => {
 		setOpen(false);
 	};
+
+	useEffect(() => {
+		API.get('/visualization/')
+			.then((res) => res.data)
+			.then((data) => {
+				setData(data);
+				setSelected(data[0]);
+				console.log(data);
+			})
+			.catch((err) => {
+				console.log(err);
+			});
+	}, []);
 
 	return (
 		<Drawer
@@ -61,65 +101,83 @@ export default function Sidebar() {
 			</Button>
 
 			<Dialog open={open} onClose={handleDialogClose}>
-				<DialogTitle>Create blank visualization</DialogTitle>
-				<DialogContent>
-					<DialogContentText>
-						For visualization creation please fill visualization
-						name and visualization description.
-					</DialogContentText>
-					<TextField
-						autoFocus
-						margin='dense'
-						id='name'
-						label='Visualization name'
-						type='email'
-						fullWidth
-						variant='standard'
-					/>
-					<TextField
-						autoFocus
-						margin='dense'
-						id='desc'
-						label='Visualization description'
-						type='email'
-						fullWidth
-						variant='standard'
-					/>
-				</DialogContent>
-				<DialogActions>
-					<Button onClick={handleDialogClose}>Cancel</Button>
-					<Button onClick={handleDialogUpload}>Create</Button>
-				</DialogActions>
+				<form onSubmit={handleSubmit(onSubmit)}>
+					<DialogTitle>Create blank visualization</DialogTitle>
+					<DialogContent>
+						<DialogContentText>
+							For visualization creation please fill visualization
+							name and visualization description.
+						</DialogContentText>
+						<TextField
+							autoFocus
+							margin='dense'
+							id='name'
+							label='Visualization name'
+							type='text'
+							fullWidth
+							variant='standard'
+							{...register('name', { required: 'Required' })}
+							error={!!errors?.name}
+							helperText={
+								errors?.name ? errors.name.message : null
+							}
+						/>
+						<TextField
+							autoFocus
+							margin='dense'
+							id='description'
+							label='Visualization description'
+							type='text'
+							fullWidth
+							variant='standard'
+							{...register('description', {
+								required: 'Required',
+							})}
+							error={!!errors?.name}
+							helperText={
+								errors?.name ? errors.name.message : null
+							}
+						/>
+					</DialogContent>
+					<DialogActions>
+						<Button onClick={handleDialogClose}>Cancel</Button>
+						<Button type='submit'>Create</Button>
+					</DialogActions>
+				</form>
 			</Dialog>
 
 			<Divider />
 			<FormControl fullWidth>
 				<InputLabel>Visualization</InputLabel>
 				<Select
-					value={id}
+					value={selected}
 					label='Visualization'
 					onChange={handleChange}
 				>
-					<MenuItem value={1}>Visualization 1</MenuItem>
-					<MenuItem value={2}>Visualization 2</MenuItem>
-					<MenuItem value={3}>Visualization 3</MenuItem>
+					{data.map((instance) => (
+						<MenuItem key={instance.id} value={instance}>
+							{instance.name}
+						</MenuItem>
+					))}
 				</Select>
 			</FormControl>
 			<Divider />
-			<List>
-				{['Room', 'Upload', 'Sensors', 'Visualization'].map(
-					(text, index) => (
-						<ListItem
-							button
-							key={text}
-							component={Link}
-							to={`/${text}/${id}/`}
-						>
-							<ListItemText primary={text} />
-						</ListItem>
-					)
-				)}
-			</List>
+			{selected ? (
+				<List>
+					{['Room', 'Upload', 'Sensors', 'Visualization'].map(
+						(text, index) => (
+							<ListItem
+								button
+								key={text}
+								component={Link}
+								to={`/${text}/${selected.id}/`}
+							>
+								<ListItemText primary={text} />
+							</ListItem>
+						)
+					)}
+				</List>
+			) : null}
 		</Drawer>
 	);
 }

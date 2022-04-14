@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import TextField from '@mui/material/TextField';
 import StaticDateRangePicker from '@mui/lab/StaticDateRangePicker';
 import DateRangePicker, { DateRange } from '@mui/lab/DateRangePicker';
@@ -23,37 +23,25 @@ import Select from '@mui/material/Select';
 import InputLabel from '@mui/material/InputLabel';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
-
-const marks = [
-	{
-		value: 0,
-		label: '0°C',
-	},
-	{
-		value: 20,
-		label: '20°C',
-	},
-	{
-		value: 37,
-		label: '37°C',
-	},
-	{
-		value: 100,
-		label: '100°C',
-	},
-];
-
-function valuetext(value) {
-	return `${value}°C`;
-}
+import API from '../api';
+import { useParams } from 'react-router';
 
 const Visualize = (props) => {
+	const { id } = useParams();
 	const [value, setValue] = React.useState([null, null]);
 	const [room, setRoom] = React.useState(null);
 	const [interpolationInterval, setInterpolationInterval] =
-		React.useState('web');
-	const [aggregate, setAggregate] = React.useState('web');
+		React.useState('');
+	const [aggregate, setAggregate] = React.useState('');
 	const [loading, setLoading] = React.useState(true);
+	const [sensorPosition, setSensorPosition] = React.useState([]);
+	const [slider, setSliderPosition] = React.useState(0);
+	const [selected, setSelected] = React.useState(null);
+	const [data, setData] = React.useState({
+		rooms: [],
+		sensors: [],
+		sensorData: [],
+	});
 
 	function handleClick() {
 		setLoading(true);
@@ -69,6 +57,75 @@ const Visualize = (props) => {
 
 	const handleRoomChange = (event) => {
 		setRoom(event.target.value);
+	};
+
+	const handleSliderChange = (event) => {};
+
+	useEffect(() => {
+		/*
+		async () => {
+			try {
+				const res = await API.get(`/visualization/${id}/room/`)
+				console.log(res)
+				setData({ ...data, : res.data });
+			} catch (err) {
+				console.log(err)
+			}
+		}
+
+		async () => {
+			try {
+				const res = await API.get(`/visualization/${id}/room/`)
+				console.log(res)
+				setData({ ...data, rooms: res.data });
+			} catch (err) {
+				console.log(err)
+			}
+		}
+		*/
+
+		API.get(`/visualization/${id}/room/`)
+			.then((res) => {
+				console.log(res);
+				setData({ ...data, rooms: res.data });
+			})
+			.catch((err) => {
+				console.log(err);
+			});
+
+		API.get(`/visualization/${id}/sensors/`)
+			.then((res) => {
+				console.log(res);
+				setData({ ...data, sensors: res.data });
+			})
+			.catch((err) => {
+				console.log(err);
+			});
+	}, []);
+
+	function isEmpty(str) {
+		return !str || str.length === 0;
+	}
+
+	const handleFetch = () => {
+		// add checks
+		//if (!isEmpty(interpolationInterval) && ! isEmpty(aggregate))
+		console.log(data);
+		const req = {
+			ltd: value[0].toISOString(),
+			gtd: value[1].toISOString(),
+			aggregate: aggregate,
+			interval: interpolationInterval,
+		};
+
+		API.post(`/visualization/${id}/data/`, req)
+			.then((res) => {
+				console.log(res);
+				setData({ ...data, sensorData: res.data });
+			})
+			.catch((err) => {
+				console.log(err);
+			});
 	};
 
 	return (
@@ -148,13 +205,17 @@ const Visualize = (props) => {
 							label='Room'
 							onChange={handleRoomChange}
 						>
-							<MenuItem value={1}>Room 1</MenuItem>
-							<MenuItem value={2}>Room 2</MenuItem>
-							<MenuItem value={3}>Room 3</MenuItem>
+							{data.rooms.map((room) => (
+								<MenuItem
+									value={room}
+								>{`id: ${room.id}, ${room.name}`}</MenuItem>
+							))}
 						</Select>
 					</FormControl>
 
-					<Button variant='contained'>Fetch data</Button>
+					<Button variant='contained' onClick={handleFetch}>
+						Fetch data
+					</Button>
 				</Stack>
 			</Grid>
 
@@ -176,17 +237,20 @@ const Visualize = (props) => {
 					</IconButton>
 
 					<Slider
-						aria-label='Temperature'
-						defaultValue={30}
-						getAriaValueText={valuetext}
+						value={slider}
+						onChange={(_, value) => setSliderPosition(value)}
 						valueLabelDisplay='auto'
-						step={10}
+						step={1}
 						marks
-						min={10}
-						max={110}
+						min={0}
+						max={data.sensorData.length}
 					/>
 
-					<IconButton aria-label='delete' size='large'>
+					<IconButton
+						aria-label='delete'
+						size='large'
+						onclick={() => {}}
+					>
 						<ChevronRightIcon fontSize='inherit' />
 					</IconButton>
 				</Stack>
@@ -241,14 +305,6 @@ const Visualize = (props) => {
 						/>
 					}
 					label='Show sensors on graph'
-				/>
-
-				<Slider
-					getAriaLabel={() => 'Temperature'}
-					orientation='horizontal'
-					getAriaValueText={valuetext}
-					defaultValue={[20, 37]}
-					marks={marks}
 				/>
 			</Grid>
 		</Stack>

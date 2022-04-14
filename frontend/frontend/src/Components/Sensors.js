@@ -1,9 +1,10 @@
-import React, { Component } from 'react';
+import React, { Component, useEffect } from 'react';
 import { render } from 'react-dom';
 import { Stage, Layer, Star, Text, Circle, Group, Rect } from 'react-konva';
 import { MenuProps, useStyles, options } from './utils';
 
 import { useTheme } from '@mui/material/styles';
+
 import OutlinedInput from '@mui/material/OutlinedInput';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
@@ -13,6 +14,8 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
+import API from '../api';
+import { useParams } from 'react-router';
 
 function generateShapes() {
 	return [101, 102, 103, 104, 105].map((element, i) => ({
@@ -28,14 +31,38 @@ const INITIAL_STATE = generateShapes();
 const names = [101, 102, 103, 104, 105, 106, 107, 108];
 
 const Sensors = () => {
+	const { id } = useParams();
+	const [fetchedRooms, setFetchedRooms] = React.useState([]);
+	const [fetchedSensors, setFetchedSensors] = React.useState([]);
 	const [stars, setStars] = React.useState(INITIAL_STATE);
 	const [sensors, setSensors] = React.useState([]);
 	const [room, setRoom] = React.useState(null);
 	const [disabled, setDisabled] = React.useState(false);
+
 	const [selectedSensor, setSelectedSensor] = React.useState({
 		x: 'no sensor selected',
 		y: 'no sensor selected',
 	});
+
+	useEffect(() => {
+		API.get(`/visualization/${id}/sensors/`)
+			.then((res) => res.data)
+			.then((data) => {
+				setFetchedSensors(data);
+			})
+			.catch((err) => {
+				console.log(err);
+			});
+
+		API.get(`/visualization/${id}/room/`)
+			.then((res) => res.data)
+			.then((data) => {
+				setFetchedRooms(data);
+			})
+			.catch((err) => {
+				console.log(err);
+			});
+	}, []);
 
 	const handleDragStart = (e) => {
 		const id = e.target.id();
@@ -105,13 +132,14 @@ const Sensors = () => {
 						multiple
 						value={sensors}
 						onChange={handleSensorChange}
-						renderValue={(selected) => selected.join(', ')}
+						renderValue={(selected) =>
+							selected.map((elem) => elem.name).join(', ')
+						}
 						input={<OutlinedInput label='Name' />}
-						MenuProps={MenuProps}
 					>
-						{names.map((name) => (
-							<MenuItem key={name} value={name}>
-								{name}
+						{fetchedSensors.map((sensor) => (
+							<MenuItem key={sensor.id} value={sensor}>
+								{sensor.name}
 							</MenuItem>
 						))}
 					</Select>
@@ -125,9 +153,9 @@ const Sensors = () => {
 						onChange={handleRoomChange}
 						MenuProps={MenuProps}
 					>
-						<MenuItem value={1}>Room 1</MenuItem>
-						<MenuItem value={2}>Room 2</MenuItem>
-						<MenuItem value={3}>Room 3</MenuItem>
+						{fetchedRooms.map((room) => (
+							<MenuItem value={room}>{room.name}</MenuItem>
+						))}
 					</Select>
 				</FormControl>
 				<Button

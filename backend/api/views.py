@@ -219,11 +219,13 @@ def accumulator(data):
 class SensorDataListAPIView(generics.GenericAPIView):
     serializer_class = SensorDataSerializer
 
-    def get(self, request, pk):
+    def post(self, request, pk):
         serializer = self.get_serializer(data=request.data)
 
         if serializer.is_valid():
             validated_data = serializer.validated_data
+            print(pk)
+            print(validated_data)
             data = make_query(
                 pk,
                 validated_data["aggregate"],
@@ -241,7 +243,7 @@ class SensorDataListAPIView(generics.GenericAPIView):
 
             return Response(result, status=status.HTTP_200_OK)
         else:
-            return Response(serializer.errors, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 sensor_data_list_view = SensorDataListAPIView.as_view()
