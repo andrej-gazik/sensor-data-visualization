@@ -30,9 +30,9 @@ import { useLocation, useNavigate, useParams } from 'react-router';
 export default function Sidebar() {
 	const { id } = useParams();
 	const { pathname } = useLocation();
-	const { navigate } = useNavigate();
+	const navigate = useNavigate();
 
-	const [selected, setSelected] = useState('');
+	const [selected, setSelected] = useState(true);
 	const [open, setOpen] = useState(false);
 	const [data, setData] = useState([]);
 
@@ -53,9 +53,9 @@ export default function Sidebar() {
 	const handleChange = (event) => {
 		setSelected(event.target.value);
 		// console.log(pathname);
-
 		const newPath = pathname.replace(/[0-9]/g, selected.id);
-		// console.log(newPath);
+		console.log(newPath);
+		navigate(newPath, { replace: true });
 	};
 
 	const handleDialogOpen = () => {
@@ -156,7 +156,7 @@ export default function Sidebar() {
 				>
 					{data.map((instance) => (
 						<MenuItem key={instance.id} value={instance}>
-							{instance.name}
+							{`ID: ${instance.id} ${instance.name}`}
 						</MenuItem>
 					))}
 				</Select>

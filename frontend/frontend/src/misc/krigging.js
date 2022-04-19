@@ -196,7 +196,7 @@ function matrixSolve(X, n) {
 	for (l = n - 1; l >= 0; l--) {
 		if (indxr[l] !== indxc[l]) {
 			for (k = 0; k < n; k++) {
-				temp = X[k * n + indxr[l]];
+		 		temp = X[k * n + indxr[l]];
 				X[k * n + indxr[l]] = X[k * n + indxc[l]];
 				X[k * n + indxc[l]] = temp;
 			}

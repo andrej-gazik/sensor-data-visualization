@@ -25,11 +25,13 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import API from '../api';
 import { useParams } from 'react-router';
+import * as krigging from '../misc/krigging';
+import Plot from 'react-plotly.js';
 
 const Visualize = (props) => {
 	const { id } = useParams();
 	const [value, setValue] = React.useState([null, null]);
-	const [room, setRoom] = React.useState(null);
+	const [room, setRoom] = React.useState('');
 	const [interpolationInterval, setInterpolationInterval] =
 		React.useState('');
 	const [aggregate, setAggregate] = React.useState('');
@@ -41,6 +43,7 @@ const Visualize = (props) => {
 		rooms: [],
 		sensors: [],
 		sensorData: [],
+		interpolatedData: [],
 	});
 
 	function handleClick() {
@@ -59,61 +62,39 @@ const Visualize = (props) => {
 		setRoom(event.target.value);
 	};
 
-	const handleSliderChange = (event) => {};
-
 	useEffect(() => {
-		/*
-		async () => {
-			try {
-				const res = await API.get(`/visualization/${id}/room/`)
-				console.log(res)
-				setData({ ...data, : res.data });
-			} catch (err) {
-				console.log(err)
-			}
-		}
-
-		async () => {
-			try {
-				const res = await API.get(`/visualization/${id}/room/`)
-				console.log(res)
-				setData({ ...data, rooms: res.data });
-			} catch (err) {
-				console.log(err)
-			}
-		}
-		*/
-
-		API.get(`/visualization/${id}/room/`)
+		API.get(`/visualization/${id}/sensors/`)
 			.then((res) => {
 				console.log(res);
-				setData({ ...data, rooms: res.data });
+				setData((data) => ({ ...data, sensors: res.data }));
+				console.log('sensors fetched');
 			})
 			.catch((err) => {
 				console.log(err);
 			});
 
-		API.get(`/visualization/${id}/sensors/`)
+		API.get(`/visualization/${id}/room/`)
 			.then((res) => {
 				console.log(res);
-				setData({ ...data, sensors: res.data });
+				setData((data) => ({ ...data, rooms: res.data }));
+				console.log('room fetched');
 			})
 			.catch((err) => {
 				console.log(err);
 			});
 	}, []);
 
-	function isEmpty(str) {
-		return !str || str.length === 0;
-	}
+	useEffect(() => interpolate(data), [slider]);
 
 	const handleFetch = () => {
 		// add checks
 		//if (!isEmpty(interpolationInterval) && ! isEmpty(aggregate))
-		console.log(data);
+		//TODO: Change
 		const req = {
-			ltd: value[0].toISOString(),
-			gtd: value[1].toISOString(),
+			//ltd: value[0].toISOString(),
+			//gtd: value[1].toISOString(),
+			ltd: '2017-04-17T14:19:26',
+			gtd: '2021-04-17T14:19:26',
 			aggregate: aggregate,
 			interval: interpolationInterval,
 		};
@@ -121,11 +102,63 @@ const Visualize = (props) => {
 		API.post(`/visualization/${id}/data/`, req)
 			.then((res) => {
 				console.log(res);
-				setData({ ...data, sensorData: res.data });
+				setData((data) => ({ ...data, sensorData: res.data }));
 			})
 			.catch((err) => {
 				console.log(err);
 			});
+	};
+
+	const interpolate = (data) => {
+		const x = [];
+		const y = [];
+		const val = [];
+		const sensors = [];
+		const predicted = [];
+		// Check for room width height
+
+		if (room === '') {
+			console.log('no room selected');
+			return null;
+		}
+
+		// Find sensors corresponding to room
+		data.sensors.map((sensor) => {
+			if (sensor.room === room.id) {
+				sensors.push(sensor);
+			}
+		});
+
+		// Find sensors that are in room and in measured data
+		data.sensorData[slider][Object.keys(data.sensorData[slider])].map(
+			(sensor) => {
+				//console.log(sensor, sensors);
+				sensors.forEach((parsedSensor) => {
+					if (parsedSensor.name === sensor[0]) {
+						console.log(parsedSensor);
+						x.push(parsedSensor.x);
+						y.push(parsedSensor.y);
+						val.push(sensor[1]);
+					}
+				});
+			}
+		);
+
+		//console.log(x, y, val);
+		// Predict variogram
+		const variogram = krigging.train(val, x, y, 'exponential', 0, 100);
+
+		// Predict room temperatures
+		console.log(room);
+		for (let i = 0; i < room.height; i++) {
+			let arr = [];
+			for (let j = 0; j < room.width; j++) {
+				arr.push(krigging.predict(j, i, variogram).toPrecision(2));
+			}
+			predicted.push(arr);
+		}
+		console.log(predicted);
+		setData((data) => ({ ...data, interpolatedData: predicted }));
 	};
 
 	return (
@@ -135,7 +168,6 @@ const Visualize = (props) => {
 				justifyContent='center'
 				direction='row'
 				alignItems='center'
-				fullWidth
 				style={{ border: '1px solid grey' }}
 			>
 				<Stack
@@ -170,8 +202,8 @@ const Visualize = (props) => {
 					>
 						<ToggleButton value='min'>Min</ToggleButton>
 						<ToggleButton value='max'>Max</ToggleButton>
-						<ToggleButton value='average'>Average</ToggleButton>
-						<ToggleButton value='first'>First</ToggleButton>
+						<ToggleButton value='avg'>Average</ToggleButton>
+						<ToggleButton value='none'>First</ToggleButton>
 					</ToggleButtonGroup>
 				</Stack>
 
@@ -205,10 +237,11 @@ const Visualize = (props) => {
 							label='Room'
 							onChange={handleRoomChange}
 						>
-							{data.rooms.map((room) => (
+							{data.rooms.map((o) => (
 								<MenuItem
-									value={room}
-								>{`id: ${room.id}, ${room.name}`}</MenuItem>
+									key={o.id}
+									value={o}
+								>{`id: ${o.id}, ${o.name}`}</MenuItem>
 							))}
 						</Select>
 					</FormControl>
@@ -238,23 +271,36 @@ const Visualize = (props) => {
 
 					<Slider
 						value={slider}
-						onChange={(_, value) => setSliderPosition(value)}
-						valueLabelDisplay='auto'
 						step={1}
-						marks
 						min={0}
-						max={data.sensorData.length}
+						max={data.sensorData.length - 1}
+						onChangeCommitted={(_, newValue) =>
+							setSliderPosition(newValue)
+						}
 					/>
 
 					<IconButton
 						aria-label='delete'
 						size='large'
-						onclick={() => {}}
+						onClick={() => {}}
 					>
 						<ChevronRightIcon fontSize='inherit' />
 					</IconButton>
 				</Stack>
 			</Grid>
+			<p>
+				{data.sensorData.length
+					? Object.keys(data.sensorData[slider])
+					: 'None'}
+			</p>
+			{/*data.sensorData.length
+				? data.sensorData[slider][
+						Object.keys(data.sensorData[slider])
+				  ].map((key) => console.log(key))
+				: 'None'*/}
+			<Button variant='contained' onClick={() => interpolate(data)}>
+				Interpolate
+			</Button>
 			<Grid
 				container
 				direction='column'
@@ -263,7 +309,18 @@ const Visualize = (props) => {
 				padding={2}
 				style={{ border: '1px solid grey' }}
 			>
-				<img src='https://i.imgur.com/HNFs32d.png' />
+				{/* Plotly graph */}
+
+				<Plot
+					data={[
+						{
+							z: data.interpolatedData,
+
+							type: 'contour',
+						},
+					]}
+					layout={{ width: 860, height: 640, title: 'A Fancy Plot' }}
+				/>
 
 				<FormControlLabel
 					sx={{

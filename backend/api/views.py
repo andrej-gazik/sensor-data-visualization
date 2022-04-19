@@ -1,6 +1,7 @@
 import io
 import itertools
 import operator
+from collections import defaultdict
 
 import pandas as pd
 from rest_framework import generics
@@ -145,7 +146,7 @@ def handle_file_upload(file, visualization):
             )
             for record in df_records
         ]
-        print(insert_model_instances)
+
         SensorData.objects.bulk_create(insert_model_instances)
 
         sensors = df["sensor_id"].unique()
@@ -224,8 +225,6 @@ class SensorDataListAPIView(generics.GenericAPIView):
 
         if serializer.is_valid():
             validated_data = serializer.validated_data
-            print(pk)
-            print(validated_data)
             data = make_query(
                 pk,
                 validated_data["aggregate"],
@@ -234,14 +233,16 @@ class SensorDataListAPIView(generics.GenericAPIView):
                 validated_data["ltd"],
             )
 
-            from collections import defaultdict
-
             result = defaultdict(list)
 
             for date, sensor, value in data:
                 result[str(date)].append((sensor, value))
+            res = []
 
-            return Response(result, status=status.HTTP_200_OK)
+            for date, values in result.items():
+                res.append({date: values})
+
+            return Response(res, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
