@@ -8,7 +8,7 @@ import Box from '@mui/material/Box';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Stack from '@mui/material/Stack';
-import { Grid, ListItem } from '@mui/material';
+import { Grid, InputAdornment, ListItem } from '@mui/material';
 import Typography from '@material-ui/core/Typography';
 import Button from '@mui/material/Button';
 import Slider from '@mui/material/Slider';
@@ -44,12 +44,13 @@ const Visualize = (props) => {
 		sensors: [],
 		sensorData: [],
 		interpolatedData: [],
+		graphTraces: [],
 	});
 	const [limits, setLimits] = React.useState({
 		min: 0,
-		max: 100,
-		isMaxEnabled: false,
-		isMinEnabled: false,
+		max: 4.5,
+		isMaxEnabled: true,
+		isMinEnabled: true,
 		isSensorEnabled: false,
 	});
 
@@ -113,12 +114,11 @@ const Visualize = (props) => {
 	};
 
 	const interpolate = (data) => {
-		const x = [];
-		const y = [];
-		const val = [];
-		const sensors = [];
-		const predicted = [];
-		// Check for room width height
+		var x = [];
+		var y = [];
+		var val = [];
+		var names = [];
+		var sensors = [];
 
 		if (room === '') {
 			console.log('no room selected');
@@ -142,6 +142,7 @@ const Visualize = (props) => {
 						x.push(parsedSensor.x);
 						y.push(parsedSensor.y);
 						val.push(sensor[1]);
+						names.push(sensor[0].toString());
 					}
 				});
 			}
@@ -149,9 +150,22 @@ const Visualize = (props) => {
 
 		//console.log(x, y, val);
 		// Predict variogram
+		/*
+		x = [60, 300, 180];
+		y = [90, 90, 90];
+		val = [5.1, 5.2, 5.0];
+		names = ['test1', 'test2', 'test3'];
+			*/
+		x.push(0);
+		y.push(0);
+		val.push(5.3);
+		names.push('0,0');
 		const variogram = krigging.train(val, x, y, 'exponential', 0, 100);
 
 		// Predict room temperatures
+		var minRegions = [];
+		var maxRegions = [];
+		var mainHeatmap = [];
 		console.log(room);
 		for (let i = 0; i < room.height; i++) {
 			let tmpMin = [];
@@ -159,11 +173,12 @@ const Visualize = (props) => {
 			let tmpArr = [];
 
 			for (let j = 0; j < room.width; j++) {
-				const val = tmpArr.push(
-					krigging.predict(j, i, variogram).toPrecision(2)
-				);
+				const val = krigging.predict(j, i, variogram).toPrecision(3);
+
+				tmpArr.push(val);
+
 				if (limits.isMaxEnabled) {
-					if (val > limits.max) {
+					if (val >= limits.max) {
 						tmpMax.push(val);
 					} else {
 						tmpMax.push(null);
@@ -171,19 +186,72 @@ const Visualize = (props) => {
 				}
 
 				if (limits.isMinEnabled) {
-					if (val < limits.min) {
+					if (val <= limits.min) {
 						tmpMin.push(val);
 					} else {
 						tmpMin.push(null);
 					}
 				}
 			}
-			predicted.push(tmpArr);
-
-			const graphData = [];
+			mainHeatmap.push(tmpArr);
+			minRegions.push(tmpMin);
+			maxRegions.push(tmpMax);
 		}
+
+		var graphTraces = [];
+
+		graphTraces.push({
+			z: mainHeatmap,
+			type: 'heatmap',
+			colorscale: 'Jet',
+		});
+
+		if (limits.isMinEnabled) {
+			graphTraces.push({
+				z: minRegions,
+				type: 'heatmap',
+				showscale: false,
+				hoverinfo: 'skip',
+				colorscale: [
+					[0, 'rgba(255, 0, 0, 0.6)'],
+					[1, 'rgba(255, 0, 0, 0.6)'],
+				],
+			});
+		}
+
+		if (limits.isMaxEnabled) {
+			graphTraces.push({
+				z: maxRegions,
+				type: 'heatmap',
+				showscale: false,
+				hoverinfo: 'skip',
+				colorscale: [
+					[0, 'rgba(0, 0, 255, 0.6)'],
+					[1, 'rgba(0, 0, 255, 0.6)'],
+				],
+			});
+		}
+
+		if (limits.isSensorEnabled) {
+			graphTraces.push({
+				x: x,
+				y: y,
+				text: names,
+				mode: 'markers+text',
+				type: 'scatter',
+				hoverinfo: 'skip',
+				textposition: 'bottom center',
+				marker: { size: 12, color: 'rgb(128, 0, 128)' },
+				color: 'green',
+			});
+		}
+
 		//console.log(predicted);
-		setData((data) => ({ ...data, interpolatedData: predicted }));
+		setData((data) => ({
+			...data,
+			tracesData: graphTraces,
+		}));
+		console.log(graphTraces);
 	};
 
 	return (
@@ -313,16 +381,18 @@ const Visualize = (props) => {
 					</IconButton>
 				</Stack>
 			</Grid>
+			{/*
 			<p>
 				{data.sensorData.length
 					? Object.keys(data.sensorData[slider])
 					: 'None'}
 			</p>
-			{/*data.sensorData.length
+			data.sensorData.length
 				? data.sensorData[slider][
 						Object.keys(data.sensorData[slider])
 				  ].map((key) => console.log(key))
 				: 'None'*/}
+
 			<Button variant='contained' onClick={() => interpolate(data)}>
 				Interpolate
 			</Button>
@@ -337,72 +407,80 @@ const Visualize = (props) => {
 				{/* Plotly graph */}
 
 				<Plot
-					data={[
-						{
-							z: data.interpolatedData,
-
-							type: 'contour',
-						},
-					]}
-					layout={{ width: 860, height: 640, title: 'A Fancy Plot' }}
-				/>
-
-				<FormControlLabel
-					sx={{
-						display: 'block',
+					data={data.tracesData}
+					layout={{
+						width: 860,
+						height: 640,
+						title: data.sensorData.length
+							? Object.keys(data.sensorData[slider]).toString()
+							: 'No data available for this plot',
 					}}
-					control={
-						<Switch
-							checked={limits.isMaxEnabled}
-							onChange={() =>
-								setLimits((limits) => ({
-									...limits,
-									isMaxEnabled: !limits.isMaxEnabled,
-								}))
-							}
-							name='loading'
-							color='primary'
-						/>
-					}
-					label='Show max on graph'
 				/>
+				<Stack
+					direction='row'
+					justifyContent='center'
+					alignItems='center'
+					spacing={2}
+					padding={2}
+				>
+					<FormControlLabel
+						sx={{
+							display: 'block',
+						}}
+						control={
+							<Switch
+								checked={limits.isMaxEnabled}
+								onChange={() =>
+									setLimits((limits) => ({
+										...limits,
+										isMaxEnabled: !limits.isMaxEnabled,
+									}))
+								}
+								name='loading'
+								color='primary'
+							/>
+						}
+						label='Show max on graph'
+					/>
 
-				<FormControlLabel
-					sx={{
-						display: 'block',
-					}}
-					control={
-						<Switch
-							checked={limits.isMinEnabled}
-							onChange={() =>
-								setLimits((limits) => ({
-									...limits,
-									isMinEnabled: !limits.isMinEnabled,
-								}))
-							}
-							name='loading'
-							color='primary'
-						/>
-					}
-					label='Show min on graph'
-				/>
+					<FormControlLabel
+						sx={{
+							display: 'block',
+						}}
+						control={
+							<Switch
+								checked={limits.isMinEnabled}
+								onChange={() =>
+									setLimits((limits) => ({
+										...limits,
+										isMinEnabled: !limits.isMinEnabled,
+									}))
+								}
+								name='loading'
+								color='primary'
+							/>
+						}
+						label='Show min on graph'
+					/>
 
-				<FormControlLabel
-					control={
-						<Switch
-							checked={limits.isSensorEnabled}
-							onChange={() =>
-								setLimits((limits) => ({
-									...limits,
-									isSensorEnabled: !limits.isSensorEnabled,
-								}))
-							}
-							name='loading'
-							color='primary'
-						/>
-					}
-					label='Show sensors on graph'
-				/>
+					<FormControlLabel
+						control={
+							<Switch
+								checked={limits.isSensorEnabled}
+								onChange={() =>
+									setLimits((limits) => ({
+										...limits,
+										isSensorEnabled:
+											!limits.isSensorEnabled,
+									}))
+								}
+								name='loading'
+								color='primary'
+							/>
+						}
+						label='Show sensors on graph'
+					/>
+				</Stack>
 			</Grid>
 		</Stack>
 	);
