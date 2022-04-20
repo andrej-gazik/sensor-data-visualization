@@ -45,10 +45,13 @@ const Visualize = (props) => {
 		sensorData: [],
 		interpolatedData: [],
 	});
-
-	function handleClick() {
-		setLoading(true);
-	}
+	const [limits, setLimits] = React.useState({
+		min: 0,
+		max: 100,
+		isMaxEnabled: false,
+		isMinEnabled: false,
+		isSensorEnabled: false,
+	});
 
 	const handleInterpolationChange = (event, newSetInterpolationInterval) => {
 		setInterpolationInterval(newSetInterpolationInterval);
@@ -151,13 +154,35 @@ const Visualize = (props) => {
 		// Predict room temperatures
 		console.log(room);
 		for (let i = 0; i < room.height; i++) {
-			let arr = [];
+			let tmpMin = [];
+			let tmpMax = [];
+			let tmpArr = [];
+
 			for (let j = 0; j < room.width; j++) {
-				arr.push(krigging.predict(j, i, variogram).toPrecision(2));
+				const val = tmpArr.push(
+					krigging.predict(j, i, variogram).toPrecision(2)
+				);
+				if (limits.isMaxEnabled) {
+					if (val > limits.max) {
+						tmpMax.push(val);
+					} else {
+						tmpMax.push(null);
+					}
+				}
+
+				if (limits.isMinEnabled) {
+					if (val < limits.min) {
+						tmpMin.push(val);
+					} else {
+						tmpMin.push(null);
+					}
+				}
 			}
-			predicted.push(arr);
+			predicted.push(tmpArr);
+
+			const graphData = [];
 		}
-		console.log(predicted);
+		//console.log(predicted);
 		setData((data) => ({ ...data, interpolatedData: predicted }));
 	};
 
@@ -328,8 +353,13 @@ const Visualize = (props) => {
 					}}
 					control={
 						<Switch
-							checked={loading}
-							onChange={() => setLoading(!loading)}
+							checked={limits.isMaxEnabled}
+							onChange={() =>
+								setLimits((limits) => ({
+									...limits,
+									isMaxEnabled: !limits.isMaxEnabled,
+								}))
+							}
 							name='loading'
 							color='primary'
 						/>
@@ -343,8 +373,13 @@ const Visualize = (props) => {
 					}}
 					control={
 						<Switch
-							checked={loading}
-							onChange={() => setLoading(!loading)}
+							checked={limits.isMinEnabled}
+							onChange={() =>
+								setLimits((limits) => ({
+									...limits,
+									isMinEnabled: !limits.isMinEnabled,
+								}))
+							}
 							name='loading'
 							color='primary'
 						/>
@@ -355,8 +390,13 @@ const Visualize = (props) => {
 				<FormControlLabel
 					control={
 						<Switch
-							checked={loading}
-							onChange={() => setLoading(!loading)}
+							checked={limits.isSensorEnabled}
+							onChange={() =>
+								setLimits((limits) => ({
+									...limits,
+									isSensorEnabled: !limits.isSensorEnabled,
+								}))
+							}
 							name='loading'
 							color='primary'
 						/>
