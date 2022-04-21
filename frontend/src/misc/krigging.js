@@ -5,6 +5,7 @@
  * LICENSE: MIT
  * (c) 2019-2019 https://github.com/sakitam-gis/kriging.js
  */
+
 function max(source) {
 	return Math.max.apply(null, source);
 }
@@ -196,7 +197,7 @@ function matrixSolve(X, n) {
 	for (l = n - 1; l >= 0; l--) {
 		if (indxr[l] !== indxc[l]) {
 			for (k = 0; k < n; k++) {
-		 		temp = X[k * n + indxr[l]];
+				temp = X[k * n + indxr[l]];
 				X[k * n + indxr[l]] = X[k * n + indxc[l]];
 				X[k * n + indxc[l]] = temp;
 			}
@@ -225,7 +226,6 @@ function variogramSpherical(h, nugget, range, sill) {
 			(1.5 * (h / range) - 0.5 * Math.pow(h / range, 3))
 	);
 }
-//# sourceMappingURL=utils.js.map
 
 export function train(t, x, y, model, sigma2, alpha) {
 	var variogram = {

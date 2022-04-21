@@ -27,6 +27,7 @@ import API from '../api';
 import { useParams } from 'react-router';
 import * as krigging from '../misc/krigging';
 import Plot from 'react-plotly.js';
+import idw from '../misc/InverseDistanceWeighting';
 
 const Visualize = (props) => {
 	const { id } = useParams();
@@ -49,9 +50,10 @@ const Visualize = (props) => {
 	const [limits, setLimits] = React.useState({
 		min: 0,
 		max: 4.5,
-		isMaxEnabled: true,
-		isMinEnabled: true,
-		isSensorEnabled: false,
+		isMaxEnabled: false,
+		isMinEnabled: false,
+		isSensorEnabled: true,
+		isKrigging: true,
 	});
 
 	const handleInterpolationChange = (event, newSetInterpolationInterval) => {
@@ -153,13 +155,9 @@ const Visualize = (props) => {
 		/*
 		x = [60, 300, 180];
 		y = [90, 90, 90];
-		val = [5.1, 5.2, 5.0];
+		val = [1, 3, 5];
 		names = ['test1', 'test2', 'test3'];
-			*/
-		x.push(0);
-		y.push(0);
-		val.push(5.3);
-		names.push('0,0');
+		*/
 		const variogram = krigging.train(val, x, y, 'exponential', 0, 100);
 
 		// Predict room temperatures
@@ -173,21 +171,28 @@ const Visualize = (props) => {
 			let tmpArr = [];
 
 			for (let j = 0; j < room.width; j++) {
-				const val = krigging.predict(j, i, variogram).toPrecision(3);
+				var predicted = 0;
+				if (limits.isKrigging) {
+					predicted = krigging
+						.predict(j, i, variogram)
+						.toPrecision(3);
+				} else {
+					predicted = idw(j, i, x, y, val, 2).toPrecision(3);
+				}
 
-				tmpArr.push(val);
+				tmpArr.push(predicted);
 
 				if (limits.isMaxEnabled) {
-					if (val >= limits.max) {
-						tmpMax.push(val);
+					if (predicted >= limits.max) {
+						tmpMax.push(predicted);
 					} else {
 						tmpMax.push(null);
 					}
 				}
 
 				if (limits.isMinEnabled) {
-					if (val <= limits.min) {
-						tmpMin.push(val);
+					if (predicted <= limits.min) {
+						tmpMin.push(predicted);
 					} else {
 						tmpMin.push(null);
 					}
@@ -199,7 +204,7 @@ const Visualize = (props) => {
 		}
 
 		var graphTraces = [];
-
+		console.log(mainHeatmap);
 		graphTraces.push({
 			z: mainHeatmap,
 			type: 'heatmap',
@@ -479,6 +484,23 @@ const Visualize = (props) => {
 							/>
 						}
 						label='Show sensors on graph'
+					/>
+
+					<FormControlLabel
+						control={
+							<Switch
+								checked={limits.isKrigging}
+								onChange={() =>
+									setLimits((limits) => ({
+										...limits,
+										isKrigging: !limits.isKrigging,
+									}))
+								}
+								name='loading'
+								color='primary'
+							/>
+						}
+						label='IDW / Krigging'
 					/>
 				</Stack>
 			</Grid>
