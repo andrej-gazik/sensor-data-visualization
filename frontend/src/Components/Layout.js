@@ -1,21 +1,16 @@
 import React from 'react';
 import Sidebar from './Sidebar';
 import Box from '@mui/material/Box';
+import Toolbar from '@mui/material/Toolbar';
 
 export default function Layout({ children }) {
 	return (
-		<div>
-			<Box
-				sx={{
-					display: 'flex',
-					align: 'center',
-					justifyContent: 'center',
-				}}
-			>
-				<Sidebar></Sidebar>
+		<Box sx={{ display: 'flex' }}>
+			<Toolbar>
+				<Sidebar />
+			</Toolbar>
 
-				{children}
-			</Box>
-		</div>
+			{children}
+		</Box>
 	);
 }

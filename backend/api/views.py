@@ -1,5 +1,6 @@
 import io
 import itertools
+import math
 import operator
 from collections import defaultdict
 
@@ -155,6 +156,12 @@ def handle_file_upload(file, visualization):
             Sensor(visualization=visualization, name=sensor) for sensor in sensors
         ]
         Sensor.objects.bulk_create(insert_model_instances)
+
+        min_temp = df["value"].min()
+        max_temp = df["value"].max()
+        min_date = df["time"].min()
+        max_date = df["time"].max()
+
         visualization.status = "file"
         visualization.save()
         return Response(status=status.HTTP_201_CREATED)
@@ -176,7 +183,7 @@ class SensorListCreateAPIView(generics.RetrieveUpdateAPIView):
         return Response(serializer.data)
 
     def patch(self, request, *args, **kwargs):
-        raise MethodNotAllowed(method="POST")
+        raise MethodNotAllowed(method="PATCH")
 
     def put(self, request, *args, **kwargs):
         data = request.data
@@ -233,16 +240,27 @@ class SensorDataListAPIView(generics.GenericAPIView):
                 validated_data["ltd"],
             )
 
+            # No data to return
+            if len(data) == 0:
+                return Response({"min_val": None, "max_val": None, "values": []}, status=status.HTTP_200_OK)
+
             result = defaultdict(list)
+
+            min_val = -math.inf
+            max_val = math.inf
 
             for date, sensor, value in data:
                 result[str(date)].append((sensor, value))
+                if value > min_val:
+                    min_val = value
+                if value < max_val:
+                    max_val = value
             res = []
 
             for date, values in result.items():
                 res.append({date: values})
 
-            return Response(res, status=status.HTTP_200_OK)
+            return Response({"min_val": min_val, "max_val": max_val, "values": res}, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

@@ -17,6 +17,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import API from '../api';
 import { useParams } from 'react-router';
 import { width } from '@mui/system';
+import { stages } from 'konva/lib/Stage';
 
 const SCENE_WIDTH = 800;
 const SCENE_HEIGHT = 600;
@@ -31,10 +32,7 @@ const Sensors = () => {
 	const [room, setRoom] = React.useState('');
 	const [data, setData] = React.useState({ rooms: [], sensors: [] });
 	const [stageSensors, setStageSensors] = React.useState([]);
-	const [selectedSensor, setSelectedSensor] = React.useState({
-		x: 'no sensor selected',
-		y: 'no sensor selected',
-	});
+	const [selectedSensor, setSelectedSensor] = React.useState('');
 	const [scaleDimensions, setScaledDimensions] = React.useState({
 		ratio: 1,
 		width: 800,
@@ -76,17 +74,24 @@ const Sensors = () => {
 					x: sensor.x * scaleDimensions.ratio,
 					y: sensor.y * scaleDimensions.ratio,
 					isDragging: false,
+					alias: 'alias' in sensor ? sensor.alias : 'example',
 				};
 			}
 		});
-		console.log(tmp);
+		//console.log('stage sensors', tmp);
 		setStageSensors(tmp);
 	}, [sensors, room, scaleDimensions]);
 
 	const handleDragStart = (e) => {
 		const id = e.target.id();
+
+		setStageSensors(
+			stageSensors.map((sensor) => {
+				return { ...sensor, isDragging: sensor.id.toString() === id };
+			})
+		);
 		/*
-		setStars(
+		set(
 			stars.map((star) => {
 				return {
 					...star,
@@ -99,8 +104,22 @@ const Sensors = () => {
 
 	const handleDragEnd = (e) => {
 		const id = e.target.id();
+		setStageSensors((stageSensors) => {
+			return stageSensors.map((sensor) => {
+				if (id === sensor.id.toString()) {
+					return {
+						...sensor,
+						x: e.target.x() - 10,
+						y: e.target.y() - 10,
+						isDragging: false,
+					};
+				} else {
+					return sensor;
+				}
+			});
+		});
 		/*
-		setStars((state) => {
+		setS((state) => {
 			const list = stars.map((star) => {
 				if (id === star.id) {
 					return {
@@ -146,6 +165,62 @@ const Sensors = () => {
 		setSelectedSensor(event.target.value);
 	};
 
+	const handleSelectedSensorTextChange = (event) => {
+		if (event.target.name === 'sensor-alias') {
+			setStageSensors((stageSensors) => {
+				return stageSensors.map((sensor) => {
+					if (sensor.id === selectedSensor.id) {
+						return {
+							...sensor,
+							alias: event.target.value,
+						};
+					} else {
+						return sensor;
+					}
+				});
+			});
+		}
+
+		if (
+			event.target.value
+				.toString()
+				.match(/^[+-]?d*.?d+(?:[Ee][+-]?d+)?$/) !== null
+		)
+			return;
+
+		let val = parseFloat(event.target.value);
+		if (isNaN(val)) return;
+		console.log(event.target.value);
+		if (event.target.name === 'sensor-width') {
+			setStageSensors((stageSensors) => {
+				return stageSensors.map((sensor) => {
+					if (sensor.id === selectedSensor.id) {
+						return {
+							...sensor,
+							x: val * scaleDimensions.ratio,
+						};
+					} else {
+						return sensor;
+					}
+				});
+			});
+		}
+		if (event.target.name === 'sensor-height') {
+			setStageSensors((stageSensors) => {
+				return stageSensors.map((sensor) => {
+					if (sensor.id === selectedSensor.id) {
+						return {
+							...sensor,
+							y: val * scaleDimensions.ratio,
+						};
+					} else {
+						return sensor;
+					}
+				});
+			});
+		}
+	};
+
 	return (
 		<Stack direction='column' justifyContent='center' alignItems='center'>
 			<Stack
@@ -179,9 +254,10 @@ const Sensors = () => {
 							selected.map((elem) => elem.name).join(', ')
 						}
 						input={<OutlinedInput label='Name' />}
+						MenuProps={MenuProps}
 					>
 						{data.sensors.map((sensor) => (
-							<MenuItem key={sensor.id} value={sensor}>
+							<MenuItem key={sensor.id.toString()} value={sensor}>
 								{sensor.name}
 							</MenuItem>
 						))}
@@ -191,31 +267,31 @@ const Sensors = () => {
 
 			{room ? (
 				<Stage
-					width={scaleDimensions.width}
-					height={scaleDimensions.height}
+					width={scaleDimensions.width + 20}
+					height={scaleDimensions.height + 20}
 				>
 					<Layer>
 						<Rect
 							key='key'
 							x={10}
 							y={10}
-							width={scaleDimensions.width - 20}
-							height={scaleDimensions.height - 20}
+							width={scaleDimensions.width}
+							height={scaleDimensions.height}
 							stroke='black'
 						/>
 
 						{stageSensors.map((sensor) => (
-							<Group
-								onDragStart={handleDragStart}
-								onDragEnd={handleDragEnd}
-							>
+							<Group>
 								<Text
-									id={sensor.id.toString()}
-									x={sensor.x}
-									y={sensor.y}
+									key={`${sensor.id}`}
+									id={sensor.id}
+									x={sensor.x + 10}
+									y={sensor.y + 10}
 									offsetX={40}
 									offsetY={-10}
-									text={`${sensor.id} x: ${Math.floor(
+									text={`${sensor.name} ${
+										sensor.alias
+									} x: ${Math.floor(
 										sensor.x / scaleDimensions.ratio
 									)} y: ${Math.floor(
 										sensor.y / scaleDimensions.ratio
@@ -225,8 +301,8 @@ const Sensors = () => {
 								/>
 								<Circle
 									id={sensor.id.toString()}
-									x={sensor.x}
-									y={sensor.y}
+									x={sensor.x + 10}
+									y={sensor.y + 10}
 									radius={10}
 									fill='#89b717'
 									opacity={0.8}
@@ -238,7 +314,19 @@ const Sensors = () => {
 									shadowOffsetY={sensor.isDragging ? 10 : 5}
 									scaleX={sensor.isDragging ? 1.2 : 1}
 									scaleY={sensor.isDragging ? 1.2 : 1}
+									onDragStart={handleDragStart}
+									onDragEnd={handleDragEnd}
 								/>
+								{sensor.isDragging ? (
+									<Circle
+										id={sensor.id.toString()}
+										x={sensor.x + 10}
+										y={sensor.y + 10}
+										radius={10}
+										fill='#19c797'
+										opacity={0.8}
+									/>
+								) : null}
 							</Group>
 						))}
 					</Layer>
@@ -247,7 +335,7 @@ const Sensors = () => {
 				'No room selected'
 			)}
 
-			{room ? (
+			{room && stageSensors ? (
 				<Stack
 					direction='row'
 					justifyContent='center'
@@ -258,11 +346,12 @@ const Sensors = () => {
 					<FormControl sx={{ width: 300 }}>
 						<InputLabel>Sensor</InputLabel>
 						<Select
+							MenuProps={MenuProps}
 							value={selectedSensor}
 							label='Room'
 							onChange={handleSelectedSensorChange}
 						>
-							{stageSensors.map((sensor) => {
+							{sensors.map((sensor) => {
 								return (
 									<MenuItem value={sensor}>
 										{sensor.name}
@@ -274,6 +363,7 @@ const Sensors = () => {
 
 					<TextField
 						label='Width'
+						name='sensor-width'
 						variant='outlined'
 						autoFocus
 						InputProps={{
@@ -283,13 +373,31 @@ const Sensors = () => {
 								</InputAdornment>
 							),
 						}}
-						value={selectedSensor.x}
+						value={
+							stageSensors.length > 0 && selectedSensor
+								? stageSensors.find(
+										(sensor) =>
+											sensor.id === selectedSensor.id
+								  ).x / scaleDimensions.ratio
+								: 'No sensor selected' || ''
+						}
+						onChange={handleSelectedSensorTextChange}
 					/>
+
 					<TextField
+						name='sensor-height'
 						label='Height'
 						variant='outlined'
 						autoFocus
-						value={selectedSensor.y}
+						value={
+							stageSensors.length > 0 && selectedSensor
+								? stageSensors.find(
+										(sensor) =>
+											sensor.id === selectedSensor.id
+								  ).y / scaleDimensions.ratio
+								: 'No sensor selected' || ''
+						}
+						onChange={handleSelectedSensorTextChange}
 						InputProps={{
 							startAdornment: (
 								<InputAdornment position='start'>
@@ -297,6 +405,21 @@ const Sensors = () => {
 								</InputAdornment>
 							),
 						}}
+					/>
+					<TextField
+						name='sensor-alias'
+						label='Alias'
+						variant='outlined'
+						autoFocus
+						onChange={handleSelectedSensorTextChange}
+						value={
+							stageSensors.length > 0 && selectedSensor
+								? stageSensors.find(
+										(sensor) =>
+											sensor.id === selectedSensor.id
+								  ).alias
+								: 'No sensor selected' || ''
+						}
 					/>
 				</Stack>
 			) : (

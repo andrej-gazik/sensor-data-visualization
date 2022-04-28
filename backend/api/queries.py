@@ -29,13 +29,17 @@ def make_query(pk, aggregate, interval, gtd, ltd):
                 visualization_id = %s
             ) t
         WHERE
-            rn = 1            
+            rn = 1     
+        ORDER BY 
+            tm     
         """
         parameters = [interval, interval, ltd, gtd, pk]
 
         with connection.cursor() as cursor:
             cursor.execute(query, parameters)
             rows = cursor.fetchall()
+
+
             return rows
     else:
         query = """
@@ -61,5 +65,9 @@ def make_query(pk, aggregate, interval, gtd, ltd):
         with connection.cursor() as cursor:
             cursor.execute(query, parameters)
             rows = cursor.fetchall()
-            print(rows)
+
+            with open('output.txt', 'w') as f:
+                f.writelines(str(cursor))
+
             return rows
+

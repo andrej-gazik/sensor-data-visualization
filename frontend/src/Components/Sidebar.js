@@ -46,16 +46,20 @@ export default function Sidebar() {
 		console.log(data);
 		console.log(API.baseUrl);
 		API.post('/visualization/', data)
-			.then((res) => console.log(res))
-			.catch((err) => console.log(err));
+			.then((res) => {
+				console.log(res);
+				handleDialogClose();
+			})
+			.catch((err) => {
+				console.log(err);
+				handleDialogClose();
+			});
 	};
 
 	const handleChange = (event) => {
 		setSelected(event.target.value);
 		// console.log(pathname);
-		const newPath = pathname.replace(/[0-9]/g, selected.id);
-		console.log(newPath);
-		navigate(newPath, { replace: true });
+		navigate(`/${event.target.value.id}`, { replace: true });
 	};
 
 	const handleDialogOpen = () => {
@@ -88,15 +92,16 @@ export default function Sidebar() {
 			sx={{
 				width: 200,
 				flexShrink: 0,
-				'& .MuiDrawer-paper': {
-					width: 200,
-					boxSizing: 'border-box',
-				},
 			}}
 			variant='permanent'
 			anchor='left'
 		>
-			<Button variant='contained' onClick={handleDialogOpen}>
+			<Button
+				variant='contained'
+				sx={{ m: 1, width: 'auto' }}
+				onClick={handleDialogOpen}
+			>
+				{' '}
 				Create new
 			</Button>
 
@@ -146,8 +151,7 @@ export default function Sidebar() {
 				</form>
 			</Dialog>
 
-			<Divider />
-			<FormControl fullWidth>
+			<FormControl fullwidth sx={{ m: 1, width: 200 }}>
 				<InputLabel>Visualization</InputLabel>
 				<Select
 					value={selected}
@@ -164,18 +168,41 @@ export default function Sidebar() {
 			<Divider />
 			{selected ? (
 				<List>
-					{['Room', 'Upload', 'Sensors', 'Visualization'].map(
-						(text, index) => (
-							<ListItem
-								button
-								key={text}
-								component={Link}
-								to={`/${text}/${selected.id}/`}
-							>
-								<ListItemText primary={text} />
-							</ListItem>
-						)
-					)}
+					<ListItem
+						button
+						key={'Room'}
+						component={Link}
+						to={`/room/${selected.id}/`}
+					>
+						<ListItemText primary={'Room'} />
+					</ListItem>
+
+					<ListItem
+						button
+						key={'Upload'}
+						component={Link}
+						to={`/upload/${selected.id}/`}
+					>
+						<ListItemText primary={'Upload'} />
+					</ListItem>
+
+					<ListItem
+						button
+						key={'Sensors'}
+						component={Link}
+						to={`/sensors/${selected.id}/`}
+					>
+						<ListItemText primary={'Sensors'} />
+					</ListItem>
+
+					<ListItem
+						button
+						key={'Visualization'}
+						component={Link}
+						to={`/visualization/${selected.id}/`}
+					>
+						<ListItemText primary={'Visualization'} />
+					</ListItem>
 				</List>
 			) : null}
 		</Drawer>

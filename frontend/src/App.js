@@ -15,19 +15,64 @@ import { useParams } from 'react-router-dom';
 function App() {
 	return (
 		<div className='App'>
-			<Layout>
-				<Routes>
-					<Route path='/' component={<Home />} />
-					<Route path='/Room/:id/' element={<RoomCreator />} />
-					<Route path='/Upload/:id/' element={<Upload />} />
-					<Route path='/Sensors/:id/' element={<Sensors />} />
-					<Route
-						path='/Visualization/:id/'
-						element={<Visualize minDate='2020-06-11' />}
-					/>
-					<Route path='*' element={<NotFound />} />
-				</Routes>
-			</Layout>
+			<Routes>
+				<Route
+					path='/'
+					element={
+						<Layout>
+							<Home />
+						</Layout>
+					}
+				/>
+				<Route
+					path='/:id/'
+					element={
+						<Layout>
+							<Home />
+						</Layout>
+					}
+				/>
+				<Route
+					path='/room/:id/'
+					element={
+						<Layout>
+							<RoomCreator />
+						</Layout>
+					}
+				/>
+				<Route
+					path='/upload/:id/'
+					element={
+						<Layout>
+							<Upload />
+						</Layout>
+					}
+				/>
+				<Route
+					path='/sensors/:id/'
+					element={
+						<Layout>
+							<Sensors />
+						</Layout>
+					}
+				/>
+				<Route
+					path='/visualization/:id/'
+					element={
+						<Layout>
+							<Visualize minDate='2020-06-11' />
+						</Layout>
+					}
+				/>
+				<Route
+					path='*'
+					element={
+						<Layout>
+							<NotFound />
+						</Layout>
+					}
+				/>
+			</Routes>
 		</div>
 	);
 }

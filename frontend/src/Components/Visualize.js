@@ -1,6 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import TextField from '@mui/material/TextField';
-import StaticDateRangePicker from '@mui/lab/StaticDateRangePicker';
 import DateRangePicker, { DateRange } from '@mui/lab/DateRangePicker';
 import AdapterDateFns from '@date-io/date-fns';
 import LocalizationProvider from '@mui/lab/LocalizationProvider';
@@ -8,13 +7,11 @@ import Box from '@mui/material/Box';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Stack from '@mui/material/Stack';
-import { Grid, InputAdornment, ListItem } from '@mui/material';
+import { Grid } from '@mui/material';
 import Typography from '@material-ui/core/Typography';
 import Button from '@mui/material/Button';
 import Slider from '@mui/material/Slider';
-import { Paper } from '@material-ui/core';
 import IconButton from '@mui/material/IconButton';
-import DeleteIcon from '@mui/icons-material/Delete';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLefttIcon from '@mui/icons-material/ChevronLeft';
 import MenuItem from '@mui/material/MenuItem';
@@ -28,10 +25,32 @@ import { useParams } from 'react-router';
 import * as krigging from '../misc/krigging';
 import Plot from 'react-plotly.js';
 import idw from '../misc/InverseDistanceWeighting';
+import { Stage, Layer, Rect, Text, Group, Label } from 'react-konva';
+import Divider from '@mui/material/Divider';
+import Drawer from '@mui/material/Drawer';
+import { Toolbar } from '@material-ui/core';
+let colormap = require('colormap');
+
+const COLOR_SCALE_LENGTH = 100;
+const DEFAULT_COLOR_SCALE = 'jet';
+const COLOR_SCALES = [
+	'jet',
+	'hot',
+	'greys',
+	'bluered',
+	'inferno',
+	'magma',
+	'plasma',
+	'cool',
+	'spring',
+	'summer',
+	'temperature',
+];
 
 const Visualize = (props) => {
+	const vizBox = useRef(null);
 	const { id } = useParams();
-	const [value, setValue] = React.useState([null, null]);
+	const [value, setValue] = React.useState(['', '']);
 	const [room, setRoom] = React.useState('');
 	const [interpolationInterval, setInterpolationInterval] =
 		React.useState('');
@@ -40,10 +59,18 @@ const Visualize = (props) => {
 	const [sensorPosition, setSensorPosition] = React.useState([]);
 	const [slider, setSliderPosition] = React.useState(0);
 	const [selected, setSelected] = React.useState(null);
+	const [colorScale, setColorScale] = React.useState([]);
+	const [indicatorIndex, setIndcatorIndex] = React.useState({
+		min: null,
+		max: null,
+		viewIndicator: false,
+	});
 	const [data, setData] = React.useState({
 		rooms: [],
 		sensors: [],
 		sensorData: [],
+		sensorDataMin: null,
+		sensorsDataMax: null,
 		interpolatedData: [],
 		graphTraces: [],
 	});
@@ -69,11 +96,16 @@ const Visualize = (props) => {
 	};
 
 	useEffect(() => {
+		console.log('width', vizBox.current.offsetWidth);
+	}, [vizBox.current]);
+
+	// Component did mount
+	useEffect(() => {
 		API.get(`/visualization/${id}/sensors/`)
 			.then((res) => {
 				console.log(res);
 				setData((data) => ({ ...data, sensors: res.data }));
-				console.log('sensors fetched');
+				//console.log('sensors fetched');
 			})
 			.catch((err) => {
 				console.log(err);
@@ -83,7 +115,7 @@ const Visualize = (props) => {
 			.then((res) => {
 				console.log(res);
 				setData((data) => ({ ...data, rooms: res.data }));
-				console.log('room fetched');
+				//console.log('room fetched');
 			})
 			.catch((err) => {
 				console.log(err);
@@ -99,7 +131,7 @@ const Visualize = (props) => {
 		const req = {
 			//ltd: value[0].toISOString(),
 			//gtd: value[1].toISOString(),
-			ltd: '2017-04-17T14:19:26',
+			ltd: '2021-01-12T14:19:26',
 			gtd: '2021-04-17T14:19:26',
 			aggregate: aggregate,
 			interval: interpolationInterval,
@@ -108,7 +140,38 @@ const Visualize = (props) => {
 		API.post(`/visualization/${id}/data/`, req)
 			.then((res) => {
 				console.log(res);
-				setData((data) => ({ ...data, sensorData: res.data }));
+				setData((data) => ({
+					...data,
+					sensorData: res.data.values,
+					sensorDataMin: res.data.min_val,
+					sensorDataMax: res.data.max_val,
+				}));
+
+				// Scale colors
+				const min = res.data.min_val;
+				const max = res.data.max_val;
+				const step = (max - min) / COLOR_SCALE_LENGTH;
+				let colors = colormap({
+					colormap: 'jet',
+					nshades: COLOR_SCALE_LENGTH,
+					format: 'rgb',
+					alpha: 1,
+				});
+				console.log(colors);
+				// Map linear to minmax values
+				setColorScale(
+					colors.map((color, index) => {
+						return [
+							`rgb(${color[0]},${color[1]},${color[2]})`,
+							max - step * index,
+						];
+					})
+				);
+				/*
+				const filteredColorScale = mappedColorScale.filter((item) => {
+					if (item[1] > subMin && item[1] < subMax) return item;
+				});
+				*/
 			})
 			.catch((err) => {
 				console.log(err);
@@ -140,7 +203,7 @@ const Visualize = (props) => {
 				//console.log(sensor, sensors);
 				sensors.forEach((parsedSensor) => {
 					if (parsedSensor.name === sensor[0]) {
-						console.log(parsedSensor);
+						//console.log(parsedSensor);
 						x.push(parsedSensor.x);
 						y.push(parsedSensor.y);
 						val.push(sensor[1]);
@@ -150,21 +213,17 @@ const Visualize = (props) => {
 			}
 		);
 
-		//console.log(x, y, val);
-		// Predict variogram
-		/*
-		x = [60, 300, 180];
-		y = [90, 90, 90];
-		val = [1, 3, 5];
-		names = ['test1', 'test2', 'test3'];
-		*/
-		const variogram = krigging.train(val, x, y, 'exponential', 0, 100);
+		const variogram = krigging.train(val, x, y, 'spherical', 0, 100);
 
 		// Predict room temperatures
 		var minRegions = [];
 		var maxRegions = [];
 		var mainHeatmap = [];
-		console.log(room);
+
+		var max = Number.MIN_VALUE;
+		var min = Number.MAX_VALUE;
+
+		//console.log(room);
 		for (let i = 0; i < room.height; i++) {
 			let tmpMin = [];
 			let tmpMax = [];
@@ -173,11 +232,18 @@ const Visualize = (props) => {
 			for (let j = 0; j < room.width; j++) {
 				var predicted = 0;
 				if (limits.isKrigging) {
-					predicted = krigging
-						.predict(j, i, variogram)
-						.toPrecision(3);
+					predicted = krigging.predict(j, i, variogram).toFixed(3);
 				} else {
-					predicted = idw(j, i, x, y, val, 2).toPrecision(3);
+					predicted = idw(j, i, x, y, val, 2);
+					predicted = predicted.toFixed(3);
+				}
+
+				if (predicted < min) {
+					min = predicted;
+				}
+
+				if (predicted > max) {
+					max = predicted;
 				}
 
 				tmpArr.push(predicted);
@@ -203,12 +269,54 @@ const Visualize = (props) => {
 			maxRegions.push(tmpMax);
 		}
 
+		// Colormap filter
+		console.log('minmax', min, max);
+		var indexes = [];
+
+		var scale = colorScale.filter((item, index) => {
+			if (item[1] >= min && item[1] <= max) {
+				indexes.push(index);
+				return item;
+			}
+		});
+
+		setIndcatorIndex({
+			min: indexes.at(0),
+			max: indexes.at(-1),
+			viewIndicator: true,
+		});
+		console.log('full', colorScale);
+
+		var finalScale = [];
+
+		console.log('filtered', scale);
+
+		if (scale.length > 0) {
+			const len = scale.length;
+			for (var i = 0; i < len; i++) {
+				//console.log(scale[i]);
+				finalScale.push([
+					((1 / (len - 1)) * i).toPrecision(5).toString(),
+					scale[i][0],
+				]);
+			}
+		} else {
+			finalScale = 'jet';
+		}
+
+		console.log('scaled scale', finalScale);
+
 		var graphTraces = [];
-		console.log(mainHeatmap);
+		//console.log(mainHeatmap);
 		graphTraces.push({
 			z: mainHeatmap,
 			type: 'heatmap',
-			colorscale: 'Jet',
+			colorscale: finalScale,
+			hovertemplate:
+				'<i>°C</i>: <b>%{z:.2f}</b>' +
+				'<br><b>X</b>: %{x} <b>Y</b>: %{y}<br>' +
+				'<extra></extra>',
+			colorbar: { x: 1, len: 0.7 },
 		});
 
 		if (limits.isMinEnabled) {
@@ -247,7 +355,6 @@ const Visualize = (props) => {
 				hoverinfo: 'skip',
 				textposition: 'bottom center',
 				marker: { size: 12, color: 'rgb(128, 0, 128)' },
-				color: 'green',
 			});
 		}
 
@@ -260,100 +367,22 @@ const Visualize = (props) => {
 	};
 
 	return (
-		<Stack direction='column'>
-			<Grid
-				container
-				justifyContent='center'
-				direction='row'
+		<Box
+			display='flex'
+			allignItems='center'
+			justifyContent='center'
+			sx={{
+				flexGrow: 1,
+				height: '100%',
+			}}
+		>
+			<Box
+				ref={vizBox}
+				display='flex'
 				alignItems='center'
-				style={{ border: '1px solid grey' }}
-			>
-				<Stack
-					direction='column'
-					justifyContent='space-evenly'
-					alignItems='center'
-					spacing={2}
-					sx={{ m: 2 }}
-				>
-					<Typography variant='h6' component='h6'>
-						Resampling interval
-					</Typography>
-					<ToggleButtonGroup
-						color='primary'
-						value={interpolationInterval}
-						exclusive
-						onChange={handleInterpolationChange}
-					>
-						<ToggleButton value='hour'>Hourly</ToggleButton>
-						<ToggleButton value='day'>Dialy</ToggleButton>
-						<ToggleButton value='year'>Weekly</ToggleButton>
-						<ToggleButton value='month'>Monthly</ToggleButton>
-					</ToggleButtonGroup>
-					<Typography variant='h6' component='h6'>
-						Aggregate function over data
-					</Typography>
-					<ToggleButtonGroup
-						color='secondary'
-						value={aggregate}
-						exclusive
-						onChange={handleAggregateChange}
-					>
-						<ToggleButton value='min'>Min</ToggleButton>
-						<ToggleButton value='max'>Max</ToggleButton>
-						<ToggleButton value='avg'>Average</ToggleButton>
-						<ToggleButton value='none'>First</ToggleButton>
-					</ToggleButtonGroup>
-				</Stack>
-
-				<Stack
-					direction='column'
-					justifyContent='space-evenly'
-					alignItems='center'
-					sx={{ flexGrow: 1 }}
-				>
-					<LocalizationProvider dateAdapter={AdapterDateFns}>
-						<DateRangePicker
-							startText='Visualization interval start'
-							endText='Visualization interval end'
-							value={value}
-							onChange={(newValue) => {
-								setValue(newValue);
-							}}
-							renderInput={(startProps, endProps) => (
-								<React.Fragment>
-									<TextField {...startProps} />
-									<Box> to </Box>
-									<TextField {...endProps} />
-								</React.Fragment>
-							)}
-						/>
-					</LocalizationProvider>
-					<FormControl sx={{ m: 1, width: '300px' }}>
-						<InputLabel>Room</InputLabel>
-						<Select
-							value={room}
-							label='Room'
-							onChange={handleRoomChange}
-						>
-							{data.rooms.map((o) => (
-								<MenuItem
-									key={o.id}
-									value={o}
-								>{`id: ${o.id}, ${o.name}`}</MenuItem>
-							))}
-						</Select>
-					</FormControl>
-
-					<Button variant='contained' onClick={handleFetch}>
-						Fetch data
-					</Button>
-				</Stack>
-			</Grid>
-
-			<Grid
-				container
-				direction='column'
-				style={{ border: '1px solid grey' }}
+				justifyContent='center'
+				flexDirection='column'
+				flexGrow={1}
 			>
 				<Typography variant='h6' component='h2'>
 					Visualization date
@@ -362,12 +391,15 @@ const Visualize = (props) => {
 					direction='row'
 					justifyContent='center'
 					alignItems='center'
+					flexGrow={1}
+					sx={{ m: 1, width: 1 }}
 				>
 					<IconButton aria-label='delete' size='large'>
 						<ChevronLefttIcon fontSize='inherit' />
 					</IconButton>
 
 					<Slider
+						flexGrow={1}
 						value={slider}
 						step={1}
 						min={0}
@@ -385,126 +417,328 @@ const Visualize = (props) => {
 						<ChevronRightIcon fontSize='inherit' />
 					</IconButton>
 				</Stack>
-			</Grid>
-			{/*
-			<p>
-				{data.sensorData.length
-					? Object.keys(data.sensorData[slider])
-					: 'None'}
-			</p>
-			data.sensorData.length
-				? data.sensorData[slider][
-						Object.keys(data.sensorData[slider])
-				  ].map((key) => console.log(key))
-				: 'None'*/}
-
-			<Button variant='contained' onClick={() => interpolate(data)}>
-				Interpolate
-			</Button>
-			<Grid
-				container
-				direction='column'
-				justifyContent='center'
-				alignItems='center'
-				padding={2}
-				style={{ border: '1px solid grey' }}
-			>
-				{/* Plotly graph */}
 
 				<Plot
 					data={data.tracesData}
 					layout={{
-						width: 860,
-						height: 640,
+						width: 800,
+						height: 450,
+						margin: {
+							l: 20,
+							r: 0,
+							b: 0,
+							t: 50,
+						},
+						xaxis: {
+							scaleanchor: 'y',
+							fixedrange: true,
+							constrain: 'domain',
+							showgrid: false,
+							zeroline: false,
+							showline: false,
+							showticklabels: false,
+							title: `${room.width}`,
+							titlefont: {
+								family: 'Arial, sans-serif',
+								size: 18,
+								color: 'black',
+							},
+						},
+						yaxis: {
+							autorange: 'reversed',
+							fixedrange: true,
+							showgrid: false,
+							zeroline: false,
+							showline: false,
+							showticklabels: false,
+							title: `${room.height}`,
+							titlefont: {
+								family: 'Arial, sans-serif',
+								size: 18,
+								color: 'black',
+							},
+						},
 						title: data.sensorData.length
 							? Object.keys(data.sensorData[slider]).toString()
 							: 'No data available for this plot',
 					}}
+					config={{ displayModeBar: false }}
 				/>
-				<Stack
-					direction='row'
-					justifyContent='center'
-					alignItems='center'
-					spacing={2}
-					padding={2}
+				<Stage width={800} height={50}>
+					<Layer>
+						<Rect
+							width={800}
+							height={25}
+							x={0}
+							y={5}
+							fillPriority='linear-gradient'
+							fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+							fillLinearGradientEndPoint={{ x: 800, y: 0 }}
+							fillLinearGradientColorStops={
+								/*
+								colorScale.length > 0
+									? console.log(
+											colorScale.reduce((acc, cur) => {
+												console.log(acc, cur);
+												return acc.concat([
+													(
+														(cur[1] -
+															data.sensorDataMin) /
+														(data.sensorDataMax -
+															data.sensorDataMin)
+													).toPrecision(5),
+													cur[0],
+												]);
+											})
+									  )
+									: []
+										*/
+								colorScale.flatMap((v) => [
+									1 -
+										(
+											(v[1] - data.sensorDataMin) /
+											(data.sensorDataMax -
+												data.sensorDataMin)
+										).toPrecision(5),
+									v[0],
+								])
+							}
+						/>
+						<Text x={10} y={35} text={`${data.sensorDataMax}`} />
+						<Text x={770} y={35} text={`${data.sensorDataMin}`} />
+						{indicatorIndex.viewIndicator ? (
+							<Group>
+								<Rect
+									x={
+										(800 / colorScale.length) *
+										indicatorIndex.min
+									}
+									y={5}
+									width={
+										(800 / colorScale.length) *
+										(indicatorIndex.max -
+											indicatorIndex.min)
+									}
+									height={25}
+									stroke='black'
+									strokeWidth={5}
+								/>
+								<Text
+									x={
+										(800 / colorScale.length) *
+										indicatorIndex.min
+									}
+									y={35}
+									text={`${colorScale[
+										indicatorIndex.min
+									][1].toPrecision(3)}`}
+									align='center'
+								/>
+
+								<Text
+									align='right'
+									x={
+										(800 / colorScale.length) *
+											indicatorIndex.max -
+										50
+									}
+									y={35}
+									text={`${colorScale[
+										indicatorIndex.max
+									][1].toPrecision(3)}`}
+									width={50}
+								/>
+							</Group>
+						) : null}
+					</Layer>
+				</Stage>
+			</Box>
+			<Drawer
+				variant='permanent'
+				anchor='right'
+				alignItems='center'
+				sx={{
+					width: 330,
+					flexShrink: 0,
+					'& .MuiDrawer-paper': {
+						width: 330,
+						boxSizing: 'border-box',
+					},
+				}}
+			>
+				<Typography variant='h6' component='h6'>
+					Resampling interval
+				</Typography>
+				<ToggleButtonGroup
+					color='primary'
+					value={interpolationInterval}
+					exclusive
+					onChange={handleInterpolationChange}
+					sx={{ m: 1, width: 'auto' }}
 				>
-					<FormControlLabel
-						sx={{
-							display: 'block',
+					<ToggleButton value='hour'>Hourly</ToggleButton>
+					<ToggleButton value='day'>Dialy</ToggleButton>
+					<ToggleButton value='year'>Weekly</ToggleButton>
+					<ToggleButton value='month'>Monthly</ToggleButton>
+				</ToggleButtonGroup>
+				<Typography variant='h6' component='h6'>
+					Aggregate function over data
+				</Typography>
+				<ToggleButtonGroup
+					color='secondary'
+					value={aggregate}
+					exclusive
+					onChange={handleAggregateChange}
+					sx={{ m: 1, width: 'auto' }}
+				>
+					<ToggleButton value='min'>Min</ToggleButton>
+					<ToggleButton value='max'>Max</ToggleButton>
+					<ToggleButton value='avg'>Average</ToggleButton>
+					<ToggleButton value='none'>First</ToggleButton>
+				</ToggleButtonGroup>
+				<LocalizationProvider dateAdapter={AdapterDateFns}>
+					<DateRangePicker
+						startText='Visualization interval start'
+						endText='Visualization interval end'
+						value={value}
+						onChange={(newValue) => {
+							setValue(newValue);
 						}}
-						control={
-							<Switch
-								checked={limits.isMaxEnabled}
-								onChange={() =>
-									setLimits((limits) => ({
-										...limits,
-										isMaxEnabled: !limits.isMaxEnabled,
-									}))
-								}
-								name='loading'
-								color='primary'
-							/>
-						}
-						label='Show max on graph'
+						renderInput={(startProps, endProps) => (
+							<Stack direction='column' sx={{ flexGrow: 1 }}>
+								<TextField
+									{...startProps}
+									sx={{ m: 1, width: 'auto' }}
+								/>
+								<TextField
+									{...endProps}
+									sx={{ m: 1, width: 'auto' }}
+								/>
+							</Stack>
+						)}
 					/>
+				</LocalizationProvider>
+				<FormControl sx={{ m: 1, width: 'auto' }}>
+					<InputLabel>Room</InputLabel>
+					<Select
+						value={room}
+						label='Room'
+						onChange={handleRoomChange}
+					>
+						{data.rooms.map((o) => (
+							<MenuItem
+								key={o.id}
+								value={o}
+							>{`id: ${o.id}, ${o.name}`}</MenuItem>
+						))}
+					</Select>
+				</FormControl>
+				<Button
+					variant='contained'
+					onClick={handleFetch}
+					sx={{ m: 1, width: 'auto' }}
+				>
+					Fetch data
+				</Button>
+				<Divider sx={{ m: 1, width: 'auto' }} />
+				<FormControlLabel
+					sx={{ m: 1, width: 'auto' }}
+					control={
+						<Switch
+							checked={limits.isMaxEnabled}
+							onChange={() =>
+								setLimits((limits) => ({
+									...limits,
+									isMaxEnabled: !limits.isMaxEnabled,
+								}))
+							}
+							name='loading'
+							color='primary'
+						/>
+					}
+					label='Show max overlay on graph'
+				/>
+				<TextField
+					sx={{ m: 1, width: 'auto' }}
+					name='sensor-alias'
+					label='Max threshold'
+					variant='outlined'
+					autoFocus
+					//onChange={handleSelectedSensorTextChange}
+					//value={						}
+				/>
 
-					<FormControlLabel
-						sx={{
-							display: 'block',
-						}}
-						control={
-							<Switch
-								checked={limits.isMinEnabled}
-								onChange={() =>
-									setLimits((limits) => ({
-										...limits,
-										isMinEnabled: !limits.isMinEnabled,
-									}))
-								}
-								name='loading'
-								color='primary'
-							/>
-						}
-						label='Show min on graph'
-					/>
+				<FormControlLabel
+					sx={{ m: 1, width: 'auto' }}
+					control={
+						<Switch
+							checked={limits.isMinEnabled}
+							onChange={() =>
+								setLimits((limits) => ({
+									...limits,
+									isMinEnabled: !limits.isMinEnabled,
+								}))
+							}
+							name='loading'
+							color='primary'
+						/>
+					}
+					label='Show min overlay on graph'
+				/>
+				<TextField
+					sx={{ m: 1, width: 'auto' }}
+					name='sensor-alias'
+					label='Min threshold'
+					variant='outlined'
+					autoFocus
+					//onChange={handleSelectedSensorTextChange}
+					//value={						}
+				/>
+				<FormControlLabel
+					sx={{ m: 1, width: 'auto' }}
+					control={
+						<Switch
+							checked={limits.isSensorEnabled}
+							onChange={() =>
+								setLimits((limits) => ({
+									...limits,
+									isSensorEnabled: !limits.isSensorEnabled,
+								}))
+							}
+							name='loading'
+							color='primary'
+						/>
+					}
+					label='Show sensors on graph'
+				/>
 
-					<FormControlLabel
-						control={
-							<Switch
-								checked={limits.isSensorEnabled}
-								onChange={() =>
-									setLimits((limits) => ({
-										...limits,
-										isSensorEnabled:
-											!limits.isSensorEnabled,
-									}))
-								}
-								name='loading'
-								color='primary'
-							/>
-						}
-						label='Show sensors on graph'
-					/>
-
-					<FormControlLabel
-						control={
-							<Switch
-								checked={limits.isKrigging}
-								onChange={() =>
-									setLimits((limits) => ({
-										...limits,
-										isKrigging: !limits.isKrigging,
-									}))
-								}
-								name='loading'
-								color='primary'
-							/>
-						}
-						label='IDW / Krigging'
-					/>
-				</Stack>
-			</Grid>
-		</Stack>
+				<FormControlLabel
+					sx={{ m: 1, width: 'auto' }}
+					control={
+						<Switch
+							checked={limits.isKrigging}
+							onChange={() =>
+								setLimits((limits) => ({
+									...limits,
+									isKrigging: !limits.isKrigging,
+								}))
+							}
+							name='loading'
+							color='primary'
+						/>
+					}
+					label='IDW / Krigging'
+				/>
+				<Divider sx={{ m: 1, width: 'auto' }} />
+				<Button
+					sx={{ m: 1, width: 'auto' }}
+					variant='contained'
+					onClick={() => interpolate(data)}
+				>
+					Interpolate
+				</Button>
+			</Drawer>
+		</Box>
 	);
 };
 
