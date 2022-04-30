@@ -25,8 +25,11 @@ import { Stack } from '@mui/material';
 import API from '../api';
 import { useParams } from 'react-router-dom';
 import { set } from 'date-fns';
+import { useSnackbar } from 'notistack';
 
 const RoomCreator = () => {
+	const { enqueueSnackbar, closeSnackbar } = useSnackbar();
+
 	const { id } = useParams();
 	const {
 		register,
@@ -52,6 +55,7 @@ const RoomCreator = () => {
 			.then((res) => res.data)
 			.then((data) => {
 				console.log(data);
+				enqueueSnackbar('Room created', { variant: 'success' });
 				setRooms([...rooms, data]);
 			})
 			.catch((err) => {
@@ -86,8 +90,15 @@ const RoomCreator = () => {
 		API.delete(`/visualization/${id}/room/${room.id}`)
 			.then((res) => {
 				console.log(res);
+				enqueueSnackbar(`Room ${room.name} id ${room.id} deleted`, {
+					variant: 'success',
+				});
 			})
 			.catch((err) => {
+				enqueueSnackbar(
+					`Room ${room.name} id ${room.id} deletion failed`,
+					{ variant: 'success' }
+				);
 				console.log(err);
 			});
 	};

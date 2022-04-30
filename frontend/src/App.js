@@ -11,10 +11,12 @@ import Layout from './Components/Layout';
 import NotFound from './Components/NotFound';
 import Home from './Components/Home';
 import { useParams } from 'react-router-dom';
+import Login from './Components/Login';
+import { SnackbarProvider } from 'notistack';
 
 function App() {
 	return (
-		<div className='App'>
+		<div>
 			<Routes>
 				<Route
 					path='/'
@@ -22,6 +24,14 @@ function App() {
 						<Layout>
 							<Home />
 						</Layout>
+					}
+				/>
+				<Route
+					path='/login/'
+					element={
+						<SnackbarProvider maxSnack={5} hideIconVariant={false}>
+							<Login />
+						</SnackbarProvider>
 					}
 				/>
 				<Route

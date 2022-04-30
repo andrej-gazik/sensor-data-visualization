@@ -26,13 +26,15 @@ import API from '../api';
 import axios from 'axios';
 import { useForm } from 'react-hook-form';
 import { useLocation, useNavigate, useParams } from 'react-router';
+import { useSnackbar } from 'notistack';
 
 export default function Sidebar() {
 	const { id } = useParams();
 	const { pathname } = useLocation();
 	const navigate = useNavigate();
+	const { enqueueSnackbar, closeSnackbar } = useSnackbar();
 
-	const [selected, setSelected] = useState(true);
+	const [selected, setSelected] = useState('');
 	const [open, setOpen] = useState(false);
 	const [data, setData] = useState([]);
 
@@ -49,9 +51,15 @@ export default function Sidebar() {
 			.then((res) => {
 				console.log(res);
 				handleDialogClose();
+				enqueueSnackbar('Visualization successfully created', {
+					variant: 'success',
+				});
 			})
 			.catch((err) => {
 				console.log(err);
+				enqueueSnackbar('Visualization creation failed', {
+					variant: 'error',
+				});
 				handleDialogClose();
 			});
 	};
@@ -101,7 +109,6 @@ export default function Sidebar() {
 				sx={{ m: 1, width: 'auto' }}
 				onClick={handleDialogOpen}
 			>
-				{' '}
 				Create new
 			</Button>
 
@@ -151,7 +158,7 @@ export default function Sidebar() {
 				</form>
 			</Dialog>
 
-			<FormControl fullwidth sx={{ m: 1, width: 200 }}>
+			<FormControl sx={{ m: 1, width: 200 }}>
 				<InputLabel>Visualization</InputLabel>
 				<Select
 					value={selected}

@@ -2,15 +2,18 @@ import React from 'react';
 import Sidebar from './Sidebar';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
+import { SnackbarProvider } from 'notistack';
 
 export default function Layout({ children }) {
 	return (
-		<Box sx={{ display: 'flex' }}>
-			<Toolbar>
-				<Sidebar />
-			</Toolbar>
+		<SnackbarProvider maxSnack={5}>
+			<Box sx={{ display: 'flex' }}>
+				<Toolbar>
+					<Sidebar />
+				</Toolbar>
 
-			{children}
-		</Box>
+				{children}
+			</Box>
+		</SnackbarProvider>
 	);
 }
