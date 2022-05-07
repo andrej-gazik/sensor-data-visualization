@@ -3,17 +3,34 @@ import { styled } from '@mui/material/styles';
 import Button from '@mui/material/Button';
 import { useParams } from 'react-router';
 import { makeStyles, createStyles, Theme } from '@material-ui/core/styles';
+import { useSnackbar } from 'notistack';
+import API from '../api';
 
 const Upload = () => {
 	const { id } = useParams();
 	const [file, setFile] = React.useState(null);
+	const { enqueueSnackbar, closeSnackbar } = useSnackbar();
 
 	const onFileChange = (event) => {
 		// Update the state
 		setFile(event.target.files[0]);
 	};
 
-	const onFileUpload = () => {};
+	const onFileUpload = () => {
+		if (file) {
+			console.log(file);
+			var data = new FormData();
+			data.append('file', file);
+
+			API.post(`/visualization/${id}/upload/`, data, {
+				headers: { 'Content-Type': 'multipart/form-data' },
+			})
+				.then((res) => console.log(res))
+				.catch((error) => console.log(error));
+		} else {
+			enqueueSnackbar('Please select file before uploading.');
+		}
+	};
 
 	const fileData = () => {
 		if (file) {
@@ -26,16 +43,13 @@ const Upload = () => {
 				</div>
 			);
 		} else {
-			<div>
-				<br />
-				<h4> Choose file before Pressing the Upload button </h4>
-			</div>;
+			return null;
 		}
 	};
 
 	return (
 		<div>
-			<input type='file' onChange={onFileChange} />
+			<input type='file' accept='.csv' onChange={onFileChange} />
 			<Button variant='contained' onClick={onFileUpload}>
 				Upload
 			</Button>

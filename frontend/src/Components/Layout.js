@@ -6,7 +6,7 @@ import { SnackbarProvider } from 'notistack';
 
 export default function Layout({ children }) {
 	return (
-		<SnackbarProvider maxSnack={5}>
+		<SnackbarProvider maxSnack={5} hideIconVariant={false}>
 			<Box sx={{ display: 'flex' }}>
 				<Toolbar>
 					<Sidebar />

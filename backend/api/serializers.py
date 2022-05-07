@@ -23,21 +23,50 @@ class RoomSerializer(serializers.ModelSerializer):
 from django.core.exceptions import ValidationError
 
 
-def validate_id_exists(value):
+def validate_sensor_id_exists(value):
     if not Sensor.objects.filter(pk=value).exists():
         raise ValidationError(f'Invalid pk "{value}" - object does not exist.')
 
 
 class SensorSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(min_value=1, validators=[validate_id_exists])
+    id = serializers.IntegerField(min_value=1, validators=[validate_sensor_id_exists])
     x = serializers.IntegerField(min_value=0)
     y = serializers.IntegerField(min_value=0)
 
     class Meta:
         model = Sensor
-        fields = ["id", "room", "name", "x", "y"]
+        fields = ["id", "room", "name", "alias", "x", "y"]
         read_only_fields = ["visualization", "name"]
         extra_kwargs = {"room": {"required": True}}
+
+    def validate_x(self, value):
+        if isinstance(self.initial_data, list):
+            return value
+
+        try:
+            room = Room.objects.get(pk=self.initial_data.get('room'))
+        except:
+            raise ValidationError('Invalid room id')
+        print(room)
+
+        if value > room.width:
+            raise ValidationError('Invalid room dimensions')
+        return value
+
+    def validate_y(self, value):
+        if isinstance(self.initial_data, list):
+            return value
+
+        print(self.initial_data)
+
+        try:
+            room = Room.objects.get(pk=self.initial_data.get('room'))
+        except:
+            raise ValidationError('Invalid room id')
+        print(room)
+        if value > room.height:
+            raise ValidationError('Invalid room dimensions')
+        return value
 
 
 class VisualizationField(serializers.Field):
@@ -58,6 +87,11 @@ class FileSerializer(serializers.ModelSerializer):
     class Meta:
         model = File
         fields = ["visualization", "file"]
+
+    def validate_file(self, value):
+        limit = 300 * 1024 * 1024
+        if value.size > limit:
+            raise ValidationError('File too large. Size should not exceed 50 MiB.')
 
 
 AGGREGATE_CHOICES = (
@@ -80,4 +114,10 @@ class SensorDataSerializer(serializers.Serializer):
     gtd = serializers.DateTimeField()
     ltd = serializers.DateTimeField()
     aggregate = serializers.ChoiceField(choices=AGGREGATE_CHOICES)
+    interval = serializers.ChoiceField(choices=INTERVAL_CHOICES)
+
+
+class MKTSerializer(serializers.Serializer):
+    gtd = serializers.DateTimeField()
+    ltd = serializers.DateTimeField()
     interval = serializers.ChoiceField(choices=INTERVAL_CHOICES)

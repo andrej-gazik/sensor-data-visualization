@@ -122,6 +122,7 @@ const Visualize = (props) => {
 			});
 	}, []);
 
+	// On slider index change data is interpolated
 	useEffect(() => interpolate(data), [slider]);
 
 	const handleFetch = () => {
@@ -167,11 +168,6 @@ const Visualize = (props) => {
 						];
 					})
 				);
-				/*
-				const filteredColorScale = mappedColorScale.filter((item) => {
-					if (item[1] > subMin && item[1] < subMax) return item;
-				});
-				*/
 			})
 			.catch((err) => {
 				console.log(err);
@@ -179,6 +175,9 @@ const Visualize = (props) => {
 	};
 
 	const interpolate = (data) => {
+		console.log('room', room);
+		console.log('sensors', data.sensors);
+
 		var x = [];
 		var y = [];
 		var val = [];
@@ -301,7 +300,7 @@ const Visualize = (props) => {
 				]);
 			}
 		} else {
-			finalScale = 'jet';
+			finalScale = 'Jet';
 		}
 
 		console.log('scaled scale', finalScale);
@@ -312,6 +311,7 @@ const Visualize = (props) => {
 			z: mainHeatmap,
 			type: 'heatmap',
 			colorscale: finalScale,
+			//colorscale: 'Jet',
 			hovertemplate:
 				'<i>°C</i>: <b>%{z:.2f}</b>' +
 				'<br><b>X</b>: %{x} <b>Y</b>: %{y}<br>' +
@@ -426,7 +426,7 @@ const Visualize = (props) => {
 						margin: {
 							l: 20,
 							r: 0,
-							b: 0,
+							b: 20,
 							t: 50,
 						},
 						xaxis: {

@@ -1,7 +1,5 @@
 import io
-import itertools
 import math
-import operator
 from collections import defaultdict
 
 import pandas as pd
@@ -12,16 +10,16 @@ from rest_framework.exceptions import MethodNotAllowed
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
-from api.models import Visualization, Room, SensorData
+from api.models import Visualization, Room, SensorData, VisualizationStats
 from api.serializers import (
     VisualizationSerializer,
     RoomSerializer,
     FileSerializer,
     Sensor,
     SensorSerializer,
-    SensorDataSerializer,
+    SensorDataSerializer, MKTSerializer,
 )
-from .queries import make_query
+from .queries import make_query, mkt
 from .validation import validate_df
 
 
@@ -109,11 +107,11 @@ class UploadFileAPIView(generics.CreateAPIView):
         # Add not
         # if Room.objects.filter(visualization=kwargs.get('pk')).exists():
         #   return Response('File was already uploaded', status=status.HTTP_400_BAD_REQUEST)
-        if not visualization.status == "room":
-            return Response(
-                {"Detail: File already uploaded or upload criteria not met"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # if not visualization.status == "room":
+        #     return Response(
+        #         {"Detail: File already uploaded or upload criteria not met"},
+        #         status=status.HTTP_400_BAD_REQUEST,
+        #     )
 
         if "file" not in request.FILES:
             return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -162,6 +160,10 @@ def handle_file_upload(file, visualization):
         min_date = df["time"].min()
         max_date = df["time"].max()
 
+        stat = VisualizationStats(visualization=visualization, min_temp=min_temp, max_temp=max_temp, min_date=min_date,
+                                  max_date=max_date)
+        stat.save()
+
         visualization.status = "file"
         visualization.save()
         return Response(status=status.HTTP_201_CREATED)
@@ -187,11 +189,17 @@ class SensorListCreateAPIView(generics.RetrieveUpdateAPIView):
 
     def put(self, request, *args, **kwargs):
         data = request.data
+        visualization = get_object_or_404(Visualization, pk=kwargs.get("pk"))
+
         if isinstance(data, list):
-
+            errors = []
+            for x in data:
+                serializer = self.get_serializer(data=x)
+                if not serializer.is_valid():
+                    errors.append(serializer.errors)
+            if len(errors) > 0:
+                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
             serializer = self.get_serializer(data=request.data, many=True)
-            visualization = get_object_or_404(Visualization, pk=kwargs.get("pk"))
-
         else:
             serializer = self.get_serializer(data=request.data)
 
@@ -220,15 +228,59 @@ class SensorListCreateAPIView(generics.RetrieveUpdateAPIView):
 sensor_list_update_view = SensorListCreateAPIView.as_view()
 
 
-def accumulator(data):
-    iterator = itertools.groupby(data, operator.itemgetter(0))
-
-
 class SensorDataListAPIView(generics.GenericAPIView):
     serializer_class = SensorDataSerializer
 
     def post(self, request, pk):
+        print(request.data)
         serializer = self.get_serializer(data=request.data)
+
+        if serializer.is_valid():
+            validated_data = serializer.validated_data
+            data = make_query(
+                pk,
+                validated_data["aggregate"],
+                validated_data["interval"],
+                validated_data["gtd"],
+                validated_data["ltd"],
+            )
+
+            # No data to return
+            if len(data) == 0:
+                return Response({"min_val": None, "max_val": None, "values": []}, status=status.HTTP_200_OK)
+
+            result = defaultdict(list)
+
+            min_val = -math.inf
+            max_val = math.inf
+
+            for date, sensor, value in data:
+                result[str(date)].append((sensor, value))
+                if value > min_val:
+                    min_val = value
+                if value < max_val:
+                    max_val = value
+            res = []
+
+            for date, values in result.items():
+                res.append({date: values})
+
+            return Response({"min_val": min_val, "max_val": max_val, "values": res}, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request, pk):
+
+        data = {
+            'gtd': request.GET.get('gtd', None),
+            'ltd': request.GET.get('ltd', None),
+            'aggregate': request.GET.get('aggregate', None),
+            'interval': request.GET.get('interval', None)
+        }
+
+        serializer = self.get_serializer(data=data)
+
+
 
         if serializer.is_valid():
             validated_data = serializer.validated_data
@@ -266,3 +318,52 @@ class SensorDataListAPIView(generics.GenericAPIView):
 
 
 sensor_data_list_view = SensorDataListAPIView.as_view()
+
+
+class MKTDataListAPIView(generics.GenericAPIView):
+
+    serializer_class = MKTSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update(
+            {
+                "gtd": self.request.query_params.get('gtn', None),
+                "ltd": self.request.query_params.get('ltd', None),
+                "interval": self.request.query_params.get('interval', None),
+
+            }
+        )
+        return context
+
+    def get(self, request, pk):
+
+        data = {
+            'gtd': request.GET.get('gtd', None),
+            'ltd': request.GET.get('ltd', None),
+            'interval': request.GET.get('interval', None)
+        }
+
+        serializer = self.get_serializer(data=data)
+
+        if serializer.is_valid():
+            validated_data = serializer.validated_data
+
+            data = mkt(
+                pk,
+                validated_data["interval"],
+                validated_data["gtd"],
+                validated_data["ltd"]
+            )
+
+            result = defaultdict(list)
+
+            for date, sensor, value in data:
+                result[str(date)].append({str(sensor): value})
+
+            return Response(result, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+mkt_data_list_view = MKTDataListAPIView.as_view()

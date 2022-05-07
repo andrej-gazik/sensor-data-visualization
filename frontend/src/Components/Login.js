@@ -16,7 +16,6 @@ import { useForm } from 'react-hook-form';
 import API from '../api';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { SnackbarProvider } from 'notistack';
 
 const theme = createTheme();
 

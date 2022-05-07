@@ -15,20 +15,52 @@ import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 import Button from '@mui/material/Button';
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import TextField from '@mui/material/TextField';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
+import Avatar from '@mui/material/Avatar';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+
 import API from '../api';
 import axios from 'axios';
 import { useForm } from 'react-hook-form';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useSnackbar } from 'notistack';
+import { withStyles, makeStyles } from '@material-ui/core/styles';
+
+function parseJwt(token) {
+	var base64Url = token.split('.')[1];
+	var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+	var jsonPayload = decodeURIComponent(
+		atob(base64)
+			.split('')
+			.map(function (c) {
+				return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+			})
+			.join('')
+	);
+
+	return JSON.parse(jsonPayload);
+}
+
+const useStyles = makeStyles({
+	selected: {
+		background: '#9da3c4',
+		textDecoration: 'none',
+		fontWeight: 'bolder',
+	},
+	none: {
+		background: 'white',
+		textDecoration: 'none',
+	},
+});
 
 export default function Sidebar() {
+	const classes = useStyles();
 	const { id } = useParams();
 	const { pathname } = useLocation();
 	const navigate = useNavigate();
@@ -82,6 +114,8 @@ export default function Sidebar() {
 		setOpen(false);
 	};
 
+	const handleLogOut = () => {};
+
 	useEffect(() => {
 		API.get('/visualization/')
 			.then((res) => res.data)
@@ -97,13 +131,31 @@ export default function Sidebar() {
 
 	return (
 		<Drawer
+			display='flex'
 			sx={{
 				width: 200,
+				maxWidth: 200,
 				flexShrink: 0,
+				textAlign: 'center',
 			}}
 			variant='permanent'
 			anchor='left'
 		>
+			<Avatar
+				sx={{
+					ml: 'auto',
+					mr: 'auto',
+					mt: 1,
+					bgcolor: 'secondary.main',
+				}}
+			>
+				<AccountCircleIcon />
+			</Avatar>
+			<p>{`user id: ${
+				parseJwt(localStorage.getItem('access_token'))['user_id']
+			}`}</p>
+			<Divider />
+
 			<Button
 				variant='contained'
 				sx={{ m: 1, width: 'auto' }}
@@ -177,6 +229,7 @@ export default function Sidebar() {
 				<List>
 					<ListItem
 						button
+						selected={pathname === `/room/${selected.id}/`}
 						key={'Room'}
 						component={Link}
 						to={`/room/${selected.id}/`}
@@ -186,23 +239,24 @@ export default function Sidebar() {
 
 					<ListItem
 						button
+						selected={pathname === `/upload/${selected.id}/`}
 						key={'Upload'}
 						component={Link}
 						to={`/upload/${selected.id}/`}
 					>
 						<ListItemText primary={'Upload'} />
 					</ListItem>
-
 					<ListItem
 						button
+						selected={pathname === `/sensors/${selected.id}/`}
 						key={'Sensors'}
 						component={Link}
 						to={`/sensors/${selected.id}/`}
 					>
 						<ListItemText primary={'Sensors'} />
 					</ListItem>
-
 					<ListItem
+						selected={pathname === `/visualization/${selected.id}/`}
 						button
 						key={'Visualization'}
 						component={Link}
@@ -212,6 +266,9 @@ export default function Sidebar() {
 					</ListItem>
 				</List>
 			) : null}
+			<Button sx={{ mt: 'auto' }} variant='text' onClick={handleLogOut}>
+				Log out
+			</Button>
 		</Drawer>
 	);
 }

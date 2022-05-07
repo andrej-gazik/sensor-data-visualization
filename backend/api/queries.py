@@ -38,8 +38,6 @@ def make_query(pk, aggregate, interval, gtd, ltd):
         with connection.cursor() as cursor:
             cursor.execute(query, parameters)
             rows = cursor.fetchall()
-
-
             return rows
     else:
         query = """
@@ -66,8 +64,35 @@ def make_query(pk, aggregate, interval, gtd, ltd):
             cursor.execute(query, parameters)
             rows = cursor.fetchall()
 
-            with open('output.txt', 'w') as f:
-                f.writelines(str(cursor))
-
             return rows
 
+
+def mkt(pk, interval, gtd, ltd):
+    query = """
+    SELECT
+        date_trunc(%s, measurement_time) as tm,
+        sensor_name,
+        (83.14472/0.008314472)/-LN(SUM(EXP((-1.0 * 83.14472)/(0.008314472 * (value + 273.15))))/COUNT(*))-273.15 AS mkt
+    FROM 
+        public.api_sensordata 
+    WHERE 
+        measurement_time > %s
+        AND 
+        measurement_time < %s 
+        AND 
+        visualization_id = %s
+    GROUP BY 
+        tm, sensor_name
+    ORDER BY tm
+    """
+
+    parameters = [interval, ltd, gtd, pk]
+
+    with connection.cursor() as cursor:
+        cursor.execute(query, parameters)
+        rows = cursor.fetchall()
+
+        with open('output.txt', 'w') as f:
+            f.writelines(str(cursor))
+
+        return rows

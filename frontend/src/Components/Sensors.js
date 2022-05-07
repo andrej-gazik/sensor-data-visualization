@@ -90,16 +90,6 @@ const Sensors = () => {
 				return { ...sensor, isDragging: sensor.id.toString() === id };
 			})
 		);
-		/*
-		set(
-			stars.map((star) => {
-				return {
-					...star,
-					isDragging: star.id === id,
-				};
-			})
-		);
-		*/
 	};
 
 	const handleDragEnd = (e) => {
@@ -118,23 +108,6 @@ const Sensors = () => {
 				}
 			});
 		});
-		/*
-		setS((state) => {
-			const list = stars.map((star) => {
-				if (id === star.id) {
-					return {
-						id: star.id,
-						x: e.target.x(),
-						y: e.target.y(),
-						isDragging: false,
-					};
-				} else {
-					return star;
-				}
-			});
-			return list;
-		});
-		*/
 	};
 
 	const handleSensorChange = (event) => {
@@ -154,8 +127,9 @@ const Sensors = () => {
 			width: event.target.value.width * ratio,
 			height: event.target.value.height * ratio,
 		});
-		console.log(scaleDimensions);
+		// console.log(scaleDimensions);
 		setSensors([]);
+		setSelectedSensor('');
 		setRoom(event.target.value);
 	};
 
@@ -296,7 +270,6 @@ const Sensors = () => {
 									)} y: ${Math.floor(
 										sensor.y / scaleDimensions.ratio
 									)}`}
-									draggable
 									align='center'
 								/>
 								<Circle
@@ -335,7 +308,7 @@ const Sensors = () => {
 				'No room selected'
 			)}
 
-			{room && stageSensors ? (
+			{room && stageSensors && sensors.length > 0 ? (
 				<Stack
 					direction='row'
 					justifyContent='center'
