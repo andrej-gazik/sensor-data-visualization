@@ -7,7 +7,6 @@ import Box from '@mui/material/Box';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Stack from '@mui/material/Stack';
-import { Grid } from '@mui/material';
 import Typography from '@material-ui/core/Typography';
 import Button from '@mui/material/Button';
 import Slider from '@mui/material/Slider';
@@ -29,8 +28,11 @@ import { Stage, Layer, Rect, Text, Group, Label } from 'react-konva';
 import Divider from '@mui/material/Divider';
 import Drawer from '@mui/material/Drawer';
 import { Toolbar } from '@material-ui/core';
+import CircularProgress from '@mui/material/CircularProgress';
+import { useSnackbar } from 'notistack';
 let colormap = require('colormap');
 
+const floatReg = new RegExp(/^[-+]?([0-9]*\.[0-9]+|[0-9]+)$/);
 const COLOR_SCALE_LENGTH = 100;
 const DEFAULT_COLOR_SCALE = 'jet';
 const COLOR_SCALES = [
@@ -47,7 +49,8 @@ const COLOR_SCALES = [
 	'temperature',
 ];
 
-const Visualize = (props) => {
+const Visualize = () => {
+	const { enqueueSnackbar, closeSnackbar } = useSnackbar();
 	const vizBox = useRef(null);
 	const { id } = useParams();
 	const [value, setValue] = React.useState(['', '']);
@@ -65,6 +68,14 @@ const Visualize = (props) => {
 		max: null,
 		viewIndicator: false,
 	});
+	const [interpolation, setInterpolation] = React.useState({
+		render: false,
+		message: 'No data to display please fetch data first.',
+	});
+
+	const [minText, setMinText] = React.useState('');
+	const [maxText, setMaxText] = React.useState('');
+
 	const [data, setData] = React.useState({
 		rooms: [],
 		sensors: [],
@@ -83,6 +94,12 @@ const Visualize = (props) => {
 		isKrigging: true,
 	});
 
+	const [isLoading, setIsLoading] = React.useState(false);
+
+	const [dateInterval, setDateInteval] = React.useState({
+		min: null,
+		max: null,
+	});
 	const handleInterpolationChange = (event, newSetInterpolationInterval) => {
 		setInterpolationInterval(newSetInterpolationInterval);
 	};
@@ -95,10 +112,49 @@ const Visualize = (props) => {
 		setRoom(event.target.value);
 	};
 
-	useEffect(() => {
-		console.log('width', vizBox.current.offsetWidth);
-	}, [vizBox.current]);
+	const handleBlur = (event) => {
+		if (event.target.name === 'min') {
+			//console.log('min');
+			try {
+				if (
+					floatReg.test(event.target.value) &&
+					event.target.value !== ''
+				) {
+					//console.log('valid min');
+					const min = parseFloat(event.target.value);
+					setLimits((limits) => ({ ...limits, min: min }));
+					enqueueSnackbar(`Min ${event.target.value} set`, {
+						variant: 'success',
+					});
+				} else {
+					enqueueSnackbar('Unable to set min', {
+						variant: 'warning',
+					});
+				}
+			} catch {}
+		}
 
+		if (event.target.name === 'max') {
+			//console.log('max');
+			try {
+				if (
+					floatReg.test(event.target.value) &&
+					event.target.value !== ''
+				) {
+					//console.log('valid min');
+					const max = parseFloat(event.target.value);
+					setLimits((limits) => ({ ...limits, max: max }));
+					enqueueSnackbar(`Max ${event.target.value} set`, {
+						variant: 'success',
+					});
+				} else {
+					enqueueSnackbar('Unable to set max', {
+						variant: 'warning',
+					});
+				}
+			} catch {}
+		}
+	};
 	// Component did mount
 	useEffect(() => {
 		API.get(`/visualization/${id}/sensors/`)
@@ -120,10 +176,29 @@ const Visualize = (props) => {
 			.catch((err) => {
 				console.log(err);
 			});
+
+		API.get(`/visualization/${id}/`)
+			.then((res) => {
+				console.log(res);
+				try {
+					console.log(res.data.stats.min_date);
+					console.log(res.data.stats.max_date);
+					const maxDate = new Date(res.data.stats.max_date);
+					const minDate = new Date(res.data.stats.min_date);
+					setDateInteval({
+						min: minDate,
+						max: maxDate,
+					});
+					setValue([minDate, null]);
+				} catch {}
+			})
+			.catch((err) => {
+				console.log(err);
+			});
 	}, []);
 
 	// On slider index change data is interpolated
-	useEffect(() => interpolate(data), [slider]);
+	useEffect(() => interpolate(data), [slider, limits, room]);
 
 	const handleFetch = () => {
 		// add checks
@@ -147,13 +222,12 @@ const Visualize = (props) => {
 					sensorDataMin: res.data.min_val,
 					sensorDataMax: res.data.max_val,
 				}));
-
 				// Scale colors
 				const min = res.data.min_val;
 				const max = res.data.max_val;
 				const step = (max - min) / COLOR_SCALE_LENGTH;
 				let colors = colormap({
-					colormap: 'jet',
+					colormap: 'hot',
 					nshades: COLOR_SCALE_LENGTH,
 					format: 'rgb',
 					alpha: 1,
@@ -185,7 +259,11 @@ const Visualize = (props) => {
 		var sensors = [];
 
 		if (room === '') {
-			console.log('no room selected');
+			setInterpolation({
+				render: false,
+				message:
+					'Room not selected or no rooms 	available for this visualization.',
+			});
 			return null;
 		}
 
@@ -196,22 +274,63 @@ const Visualize = (props) => {
 			}
 		});
 
-		// Find sensors that are in room and in measured data
-		data.sensorData[slider][Object.keys(data.sensorData[slider])].map(
-			(sensor) => {
-				//console.log(sensor, sensors);
-				sensors.forEach((parsedSensor) => {
-					if (parsedSensor.name === sensor[0]) {
-						//console.log(parsedSensor);
-						x.push(parsedSensor.x);
-						y.push(parsedSensor.y);
-						val.push(sensor[1]);
-						names.push(sensor[0].toString());
-					}
-				});
-			}
-		);
+		if (sensors.length < 3) {
+			setInterpolation({
+				render: false,
+				message: 'Room needs to have more than 3 sensors placed',
+			});
+			return null;
+		}
 
+		if (data.length === 0) {
+			setInterpolation({
+				render: false,
+				message: 'No data for interpolation',
+			});
+			return null;
+		}
+
+		try {
+			data.sensorData[slider][Object.keys(data.sensorData[slider])].map(
+				(sensor) => {
+					//console.log(sensor, sensors);
+					sensors.forEach((parsedSensor) => {
+						if (parsedSensor.name === sensor[0]) {
+							//console.log(parsedSensor);
+							x.push(parsedSensor.x);
+							y.push(parsedSensor.y);
+							val.push(sensor[1]);
+							console.log(parsedSensor);
+							if (parsedSensor.alias !== null) {
+								names.push(
+									sensor[0].toString() +
+										' ' +
+										parsedSensor.alias
+								);
+							} else {
+								names.push(sensor[0].toString());
+							}
+						}
+					});
+				}
+			);
+		} catch {
+			setInterpolation({
+				render: false,
+				message: 'Unable to parse sensors for current data.',
+			});
+			return null;
+		}
+		// Find sensors that are in room and in measured data
+
+		if (x.length < 3) {
+			setInterpolation({
+				render: false,
+				message: 'Not enough data for interpolation',
+			});
+
+			return null;
+		}
 		const variogram = krigging.train(val, x, y, 'spherical', 0, 100);
 
 		// Predict room temperatures
@@ -326,8 +445,8 @@ const Visualize = (props) => {
 				showscale: false,
 				hoverinfo: 'skip',
 				colorscale: [
-					[0, 'rgba(255, 0, 0, 0.6)'],
-					[1, 'rgba(255, 0, 0, 0.6)'],
+					[0, 'rgba(0, 0, 255, 0.9)'],
+					[1, 'rgba(0, 0, 255, 0.9)'],
 				],
 			});
 		}
@@ -339,8 +458,8 @@ const Visualize = (props) => {
 				showscale: false,
 				hoverinfo: 'skip',
 				colorscale: [
-					[0, 'rgba(0, 0, 255, 0.6)'],
-					[1, 'rgba(0, 0, 255, 0.6)'],
+					[0, 'rgba(255, 0, 0, 0.9)'],
+					[1, 'rgba(255, 0, 0, 0.9)'],
 				],
 			});
 		}
@@ -364,6 +483,11 @@ const Visualize = (props) => {
 			tracesData: graphTraces,
 		}));
 		console.log(graphTraces);
+
+		setInterpolation({
+			render: true,
+			message: '',
+		});
 	};
 
 	return (
@@ -384,9 +508,6 @@ const Visualize = (props) => {
 				flexDirection='column'
 				flexGrow={1}
 			>
-				<Typography variant='h6' component='h2'>
-					Visualization date
-				</Typography>
 				<Stack
 					direction='row'
 					justifyContent='center'
@@ -417,65 +538,74 @@ const Visualize = (props) => {
 						<ChevronRightIcon fontSize='inherit' />
 					</IconButton>
 				</Stack>
-
-				<Plot
-					data={data.tracesData}
-					layout={{
-						width: 800,
-						height: 450,
-						margin: {
-							l: 20,
-							r: 0,
-							b: 20,
-							t: 50,
-						},
-						xaxis: {
-							scaleanchor: 'y',
-							fixedrange: true,
-							constrain: 'domain',
-							showgrid: false,
-							zeroline: false,
-							showline: false,
-							showticklabels: false,
-							title: `${room.width}`,
-							titlefont: {
-								family: 'Arial, sans-serif',
-								size: 18,
-								color: 'black',
-							},
-						},
-						yaxis: {
-							autorange: 'reversed',
-							fixedrange: true,
-							showgrid: false,
-							zeroline: false,
-							showline: false,
-							showticklabels: false,
-							title: `${room.height}`,
-							titlefont: {
-								family: 'Arial, sans-serif',
-								size: 18,
-								color: 'black',
-							},
-						},
-						title: data.sensorData.length
-							? Object.keys(data.sensorData[slider]).toString()
-							: 'No data available for this plot',
-					}}
-					config={{ displayModeBar: false }}
-				/>
-				<Stage width={800} height={50}>
-					<Layer>
-						<Rect
-							width={800}
-							height={25}
-							x={0}
-							y={5}
-							fillPriority='linear-gradient'
-							fillLinearGradientStartPoint={{ x: 0, y: 0 }}
-							fillLinearGradientEndPoint={{ x: 800, y: 0 }}
-							fillLinearGradientColorStops={
-								/*
+				{interpolation.render ? (
+					<Box>
+						<Plot
+							data={data.tracesData}
+							layout={{
+								width: 800,
+								height: 450,
+								margin: {
+									l: 20,
+									r: 0,
+									b: 20,
+									t: 50,
+								},
+								xaxis: {
+									scaleanchor: 'y',
+									fixedrange: true,
+									constrain: 'domain',
+									showgrid: false,
+									zeroline: false,
+									showline: false,
+									showticklabels: false,
+									title: `${room.width}`,
+									titlefont: {
+										family: 'Arial, sans-serif',
+										size: 18,
+										color: 'black',
+									},
+								},
+								yaxis: {
+									autorange: 'reversed',
+									fixedrange: true,
+									showgrid: false,
+									zeroline: false,
+									showline: false,
+									showticklabels: false,
+									title: `${room.height}`,
+									titlefont: {
+										family: 'Arial, sans-serif',
+										size: 18,
+										color: 'black',
+									},
+								},
+								title: data.sensorData.length
+									? Object.keys(
+											data.sensorData[slider]
+									  ).toString()
+									: 'No data available for this plot',
+							}}
+							config={{ displayModeBar: false }}
+						/>
+						<Stage width={800} height={50}>
+							<Layer>
+								<Rect
+									width={800}
+									height={25}
+									x={0}
+									y={5}
+									fillPriority='linear-gradient'
+									fillLinearGradientStartPoint={{
+										x: 0,
+										y: 0,
+									}}
+									fillLinearGradientEndPoint={{
+										x: 800,
+										y: 0,
+									}}
+									fillLinearGradientColorStops={
+										/*
 								colorScale.length > 0
 									? console.log(
 											colorScale.reduce((acc, cur) => {
@@ -493,65 +623,78 @@ const Visualize = (props) => {
 									  )
 									: []
 										*/
-								colorScale.flatMap((v) => [
-									1 -
-										(
-											(v[1] - data.sensorDataMin) /
-											(data.sensorDataMax -
-												data.sensorDataMin)
-										).toPrecision(5),
-									v[0],
-								])
-							}
-						/>
-						<Text x={10} y={35} text={`${data.sensorDataMax}`} />
-						<Text x={770} y={35} text={`${data.sensorDataMin}`} />
-						{indicatorIndex.viewIndicator ? (
-							<Group>
-								<Rect
-									x={
-										(800 / colorScale.length) *
-										indicatorIndex.min
+										colorScale.flatMap((v) => [
+											1 -
+												(
+													(v[1] -
+														data.sensorDataMin) /
+													(data.sensorDataMax -
+														data.sensorDataMin)
+												).toPrecision(5),
+											v[0],
+										])
 									}
-									y={5}
-									width={
-										(800 / colorScale.length) *
-										(indicatorIndex.max -
-											indicatorIndex.min)
-									}
-									height={25}
-									stroke='black'
-									strokeWidth={5}
 								/>
 								<Text
-									x={
-										(800 / colorScale.length) *
-										indicatorIndex.min
-									}
+									x={10}
 									y={35}
-									text={`${colorScale[
-										indicatorIndex.min
-									][1].toPrecision(3)}`}
-									align='center'
+									text={`${data.sensorDataMax}`}
 								/>
+								<Text
+									x={770}
+									y={35}
+									text={`${data.sensorDataMin}`}
+								/>
+								{indicatorIndex.viewIndicator ? (
+									<Group>
+										<Rect
+											x={
+												(800 / colorScale.length) *
+												indicatorIndex.min
+											}
+											y={5}
+											width={
+												(800 / colorScale.length) *
+												(indicatorIndex.max -
+													indicatorIndex.min)
+											}
+											height={25}
+											stroke='black'
+											strokeWidth={5}
+										/>
+										<Text
+											x={
+												(800 / colorScale.length) *
+												indicatorIndex.min
+											}
+											y={35}
+											text={`${colorScale[
+												indicatorIndex.min
+											][1].toPrecision(3)}`}
+											align='center'
+										/>
 
-								<Text
-									align='right'
-									x={
-										(800 / colorScale.length) *
-											indicatorIndex.max -
-										50
-									}
-									y={35}
-									text={`${colorScale[
-										indicatorIndex.max
-									][1].toPrecision(3)}`}
-									width={50}
-								/>
-							</Group>
-						) : null}
-					</Layer>
-				</Stage>
+										<Text
+											align='right'
+											x={
+												(800 / colorScale.length) *
+													indicatorIndex.max -
+												50
+											}
+											y={35}
+											text={`${colorScale[
+												indicatorIndex.max
+											][1].toPrecision(3)}`}
+											width={50}
+										/>
+									</Group>
+								) : null}
+							</Layer>
+						</Stage>
+					</Box>
+				) : (
+					<p>{interpolation.message}</p>
+				)}
 			</Box>
 			<Drawer
 				variant='permanent'
@@ -600,6 +743,12 @@ const Visualize = (props) => {
 					<DateRangePicker
 						startText='Visualization interval start'
 						endText='Visualization interval end'
+						minDate={
+							dateInterval.min ? dateInterval.min : undefined
+						}
+						maxDate={
+							dateInterval.max ? dateInterval.max : undefined
+						}
 						value={value}
 						onChange={(newValue) => {
 							setValue(newValue);
@@ -660,12 +809,17 @@ const Visualize = (props) => {
 				/>
 				<TextField
 					sx={{ m: 1, width: 'auto' }}
-					name='sensor-alias'
+					name='max'
 					label='Max threshold'
 					variant='outlined'
 					autoFocus
-					//onChange={handleSelectedSensorTextChange}
-					//value={						}
+					onBlur={handleBlur}
+					value={maxText}
+					onChange={(event) => {
+						setMaxText(event.target.value);
+					}}
+					error={!floatReg.test(maxText) && limits.isMaxEnabled}
+					disabled={!limits.isMaxEnabled}
 				/>
 
 				<FormControlLabel
@@ -687,12 +841,17 @@ const Visualize = (props) => {
 				/>
 				<TextField
 					sx={{ m: 1, width: 'auto' }}
-					name='sensor-alias'
+					name='min'
 					label='Min threshold'
 					variant='outlined'
 					autoFocus
-					//onChange={handleSelectedSensorTextChange}
-					//value={						}
+					onBlur={handleBlur}
+					value={minText}
+					onChange={(event) => {
+						setMinText(event.target.value);
+					}}
+					error={!floatReg.test(minText)}
+					disabled={!limits.isMinEnabled}
 				/>
 				<FormControlLabel
 					sx={{ m: 1, width: 'auto' }}

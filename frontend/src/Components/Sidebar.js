@@ -264,6 +264,15 @@ export default function Sidebar() {
 					>
 						<ListItemText primary={'Visualization'} />
 					</ListItem>
+					<ListItem
+						selected={pathname === `/mkt/${selected.id}/`}
+						button
+						key={'Mkt'}
+						component={Link}
+						to={`/mkt/${selected.id}/`}
+					>
+						<ListItemText primary={'Mkt'} />
+					</ListItem>
 				</List>
 			) : null}
 			<Button sx={{ mt: 'auto' }} variant='text' onClick={handleLogOut}>

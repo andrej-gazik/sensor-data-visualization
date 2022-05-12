@@ -14,6 +14,10 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Box from '@mui/material/Box';
 import API from '../api';
 import { useParams } from 'react-router';
 import { width } from '@mui/system';
@@ -38,6 +42,7 @@ const Sensors = () => {
 		width: 800,
 		height: 600,
 	});
+	const [action, setAction] = React.useState('Add');
 
 	useEffect(() => {
 		API.get(`/visualization/${id}/sensors/`)
@@ -133,7 +138,25 @@ const Sensors = () => {
 		setRoom(event.target.value);
 	};
 
-	const handleSubmit = () => {};
+	const handleSubmit = () => {
+		console.log('stage sensors', stageSensors);
+
+		const data = stageSensors.map((sensor) => {
+			return {
+				id: sensor.id,
+				room: action === 'Add' ? room.id : null,
+				alias: sensor.alias,
+				x: Math.round(sensor.x / scaleDimensions.ratio),
+				y: Math.round(sensor.y / scaleDimensions.ratio),
+			};
+		});
+
+		console.log(data);
+
+		API.put(`/visualization/${id}/sensors/`, data)
+			.then((res) => console.log(res))
+			.catch((err) => console.log(err));
+	};
 
 	const handleSelectedSensorChange = (event) => {
 		setSelectedSensor(event.target.value);
@@ -348,10 +371,12 @@ const Sensors = () => {
 						}}
 						value={
 							stageSensors.length > 0 && selectedSensor
-								? stageSensors.find(
-										(sensor) =>
-											sensor.id === selectedSensor.id
-								  ).x / scaleDimensions.ratio
+								? Math.round(
+										stageSensors.find(
+											(sensor) =>
+												sensor.id === selectedSensor.id
+										).x / scaleDimensions.ratio
+								  )
 								: 'No sensor selected' || ''
 						}
 						onChange={handleSelectedSensorTextChange}
@@ -364,10 +389,12 @@ const Sensors = () => {
 						autoFocus
 						value={
 							stageSensors.length > 0 && selectedSensor
-								? stageSensors.find(
-										(sensor) =>
-											sensor.id === selectedSensor.id
-								  ).y / scaleDimensions.ratio
+								? Math.round(
+										stageSensors.find(
+											(sensor) =>
+												sensor.id === selectedSensor.id
+										).y / scaleDimensions.ratio
+								  )
 								: 'No sensor selected' || ''
 						}
 						onChange={handleSelectedSensorTextChange}
@@ -400,9 +427,30 @@ const Sensors = () => {
 			)}
 
 			{room ? (
-				<Button variant='contained' onClick={handleSubmit}>
-					Submit current sensor positions
-				</Button>
+				<Box>
+					<RadioGroup
+						aria-labelledby='demo-controlled-radio-buttons-group'
+						name='controlled-radio-buttons-group'
+						value={action}
+						onChange={(event) => {
+							setAction(event.target.value);
+						}}
+					>
+						<FormControlLabel
+							value='Add'
+							control={<Radio />}
+							label='Add'
+						/>
+						<FormControlLabel
+							value='Remove'
+							control={<Radio />}
+							label='Remove'
+						/>
+					</RadioGroup>
+					<Button variant='contained' onClick={handleSubmit}>
+						Submit current sensor positions
+					</Button>
+				</Box>
 			) : (
 				''
 			)}

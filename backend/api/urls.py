@@ -1,25 +1,13 @@
 from django.urls import path, include, re_path
-from drf_yasg import openapi
-from drf_yasg.views import get_schema_view
 from rest_framework import permissions
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from . import views
 
-schema_view = get_schema_view(
-    openapi.Info(
-        title="Snippets API",
-        default_version='v1',
-        description="Test description",
-        contact=openapi.Contact(email="gazikandrej0@gmail.com"),
-        license=openapi.License(name="BSD License"),
-    ),
-    public=True,
-    permission_classes=[permissions.AllowAny],
-)
 
 urlpatterns = [
     path('api-auth/', include('rest_framework.urls')),
     path('visualization/', views.visualization_create_api_view, name='visualization-list'),
+    path('visualization/<int:pk>/', views.stats_data_view, name='stats-data'),
     path('visualization/<int:pk>/room/', views.room_create_api_view, name='visualization-room-list'),
     path('visualization/<int:pk>/room/<int:room>', views.room_delete_api_view, name='visualization-room-delete'),
     path('visualization/<int:pk>/upload/', views.upload_file_api_view, name='file-upload'),

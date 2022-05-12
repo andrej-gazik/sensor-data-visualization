@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from api.models import Visualization, Room, Sensor, File
+from api.models import Visualization, Room, Sensor, File, VisualizationStats
 
 
 class VisualizationSerializer(serializers.ModelSerializer):
@@ -46,8 +46,10 @@ class SensorSerializer(serializers.ModelSerializer):
         try:
             room = Room.objects.get(pk=self.initial_data.get('room'))
         except:
-            raise ValidationError('Invalid room id')
-        print(room)
+            if self.initial_data.get('room') != None:
+                raise ValidationError('Invalid room id')
+            else:
+                return value
 
         if value > room.width:
             raise ValidationError('Invalid room dimensions')
@@ -62,8 +64,11 @@ class SensorSerializer(serializers.ModelSerializer):
         try:
             room = Room.objects.get(pk=self.initial_data.get('room'))
         except:
-            raise ValidationError('Invalid room id')
-        print(room)
+            if self.initial_data.get('room') != None:
+                raise ValidationError('Invalid room id')
+            else:
+                return value
+
         if value > room.height:
             raise ValidationError('Invalid room dimensions')
         return value
@@ -109,6 +114,14 @@ INTERVAL_CHOICES = (
     ("minute", "minute"),
 )
 
+INTERVAL_CHOICES_MKT = (
+    ("year", "year"),
+    ("month", "month"),
+    ("week", "week"),
+    ("day", "day"),
+    ("hour", "hour"),
+    ("minute", "minute"),
+)
 
 class SensorDataSerializer(serializers.Serializer):
     gtd = serializers.DateTimeField()
@@ -120,4 +133,10 @@ class SensorDataSerializer(serializers.Serializer):
 class MKTSerializer(serializers.Serializer):
     gtd = serializers.DateTimeField()
     ltd = serializers.DateTimeField()
-    interval = serializers.ChoiceField(choices=INTERVAL_CHOICES)
+    interval = serializers.ChoiceField(choices=INTERVAL_CHOICES_MKT)
+
+
+class StatsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VisualizationStats
+        fields = '__all__'

@@ -13,6 +13,7 @@ import Home from './Components/Home';
 import { useParams } from 'react-router-dom';
 import Login from './Components/Login';
 import { SnackbarProvider } from 'notistack';
+import Mkt from './Components/Mkt';
 
 function App() {
 	return (
@@ -70,10 +71,20 @@ function App() {
 					path='/visualization/:id/'
 					element={
 						<Layout>
-							<Visualize minDate='2020-06-11' />
+							<Visualize />
 						</Layout>
 					}
 				/>
+
+				<Route
+					path='/mkt/:id/'
+					element={
+						<Layout>
+							<Mkt />
+						</Layout>
+					}
+				/>
+
 				<Route
 					path='*'
 					element={

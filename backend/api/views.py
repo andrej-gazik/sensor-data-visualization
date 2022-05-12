@@ -10,6 +10,7 @@ from rest_framework.exceptions import MethodNotAllowed
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
+from datetime import datetime
 from api.models import Visualization, Room, SensorData, VisualizationStats
 from api.serializers import (
     VisualizationSerializer,
@@ -17,7 +18,7 @@ from api.serializers import (
     FileSerializer,
     Sensor,
     SensorSerializer,
-    SensorDataSerializer, MKTSerializer,
+    SensorDataSerializer, MKTSerializer, StatsSerializer,
 )
 from .queries import make_query, mkt
 from .validation import validate_df
@@ -135,18 +136,40 @@ def handle_file_upload(file, visualization):
         return Response(df_validation, status=status.HTTP_400_BAD_REQUEST)
     else:
         # File is valid
-        df_records = df.to_dict("records")
-        insert_model_instances = [
-            SensorData(
-                visualization=visualization,
-                sensor_name=record["sensor_id"],
-                value=record["value"],
-                measurement_time=record["time"],
-            )
-            for record in df_records
-        ]
 
-        SensorData.objects.bulk_create(insert_model_instances)
+        chunks = list()
+        chunk_size = 100000
+        num_chunks = len(df) // chunk_size + 1
+        for i in range(num_chunks):
+            time = datetime.now()
+            df_records = df[i * chunk_size:(i + 1) * chunk_size].to_dict("records")
+
+            print(f"Chunk {i} records{(time - datetime.now()).total_seconds()}")
+            insert_model_instances = [
+                SensorData(
+                    visualization=visualization,
+                    sensor_name=record["sensor_id"],
+                    value=record["value"],
+                    measurement_time=record["time"],
+                )
+                for record in df_records
+            ]
+            time = datetime.now()
+            SensorData.objects.bulk_create(insert_model_instances)
+            print(f"Chunk {i} insert {(time - datetime.now()).total_seconds()}")
+
+
+        # df_records = df.to_dict("records")
+        # insert_model_instances = [
+        #     SensorData(
+        #         visualization=visualization,
+        #         sensor_name=record["sensor_id"],
+        #         value=record["value"],
+        #         measurement_time=record["time"],
+        #     )
+        #     for record in df_records
+        # ]
+
 
         sensors = df["sensor_id"].unique()
 
@@ -209,12 +232,14 @@ class SensorListCreateAPIView(generics.RetrieveUpdateAPIView):
                 for data in validated_data:
                     sensor = Sensor.objects.get(pk=data["id"])
                     sensor.room = data["room"]
+                    sensor.alias = data["alias"]
                     sensor.x = data["x"]
                     sensor.y = data["y"]
                     sensor.save()
             else:
                 sensor = Sensor.objects.get(pk=validated_data["id"])
                 sensor.room = validated_data["room"]
+                sensor.alias = validated_data["alias"]
                 sensor.x = validated_data["x"]
                 sensor.y = validated_data["y"]
                 sensor.save()
@@ -280,8 +305,6 @@ class SensorDataListAPIView(generics.GenericAPIView):
 
         serializer = self.get_serializer(data=data)
 
-
-
         if serializer.is_valid():
             validated_data = serializer.validated_data
             data = make_query(
@@ -321,7 +344,6 @@ sensor_data_list_view = SensorDataListAPIView.as_view()
 
 
 class MKTDataListAPIView(generics.GenericAPIView):
-
     serializer_class = MKTSerializer
 
     def get_serializer_context(self):
@@ -358,12 +380,37 @@ class MKTDataListAPIView(generics.GenericAPIView):
 
             result = defaultdict(list)
 
+            res = []
+
             for date, sensor, value in data:
                 result[str(date)].append({str(sensor): value})
 
-            return Response(result, status=status.HTTP_200_OK)
+            for date, values in result.items():
+                res.append({date: values})
+
+            return Response(res, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 mkt_data_list_view = MKTDataListAPIView.as_view()
+
+
+class StatsDataAPIView(generics.GenericAPIView):
+
+    def get(self, request, pk):
+        visualization = get_object_or_404(Visualization, pk=pk)
+
+        try:
+            visualization_stats = VisualizationStats.objects.get(visualization=pk)
+            stat_data = StatsSerializer(instance=visualization_stats).data
+        except:
+            visualization_stats = None
+            stat_data = None
+
+        res = VisualizationSerializer(instance=visualization).data
+        res['stats'] = stat_data
+        return Response(res, status=status.HTTP_200_OK)
+
+
+stats_data_view = StatsDataAPIView.as_view()
