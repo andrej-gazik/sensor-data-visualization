@@ -33,7 +33,7 @@ import { useSnackbar } from 'notistack';
 let colormap = require('colormap');
 
 const floatReg = new RegExp(/^[-+]?([0-9]*\.[0-9]+|[0-9]+)$/);
-const COLOR_SCALE_LENGTH = 100;
+const COLOR_SCALE_LENGTH = 500;
 const DEFAULT_COLOR_SCALE = 'jet';
 const COLOR_SCALES = [
 	'jet',
@@ -63,6 +63,8 @@ const Visualize = () => {
 	const [slider, setSliderPosition] = React.useState(0);
 	const [selected, setSelected] = React.useState(null);
 	const [colorScale, setColorScale] = React.useState([]);
+	const [colorScaleSelect, setColorScaleSelect] =
+		React.useState(DEFAULT_COLOR_SCALE);
 	const [indicatorIndex, setIndcatorIndex] = React.useState({
 		min: null,
 		max: null,
@@ -110,6 +112,32 @@ const Visualize = () => {
 
 	const handleRoomChange = (event) => {
 		setRoom(event.target.value);
+	};
+
+	const handleScaleChange = (event) => {
+		const min = data.sensorDataMin;
+		const max = data.sensorDataMax;
+		const step = (max - min) / COLOR_SCALE_LENGTH;
+		if (min !== null && max !== null) {
+			let colors = colormap({
+				colormap: event.target.value,
+				nshades: COLOR_SCALE_LENGTH,
+				format: 'rgb',
+				alpha: 1,
+			});
+			//console.log(colors);
+			// Map linear to minmax values
+			setColorScale(
+				colors.map((color, index) => {
+					return [
+						`rgb(${color[0]},${color[1]},${color[2]})`,
+						max - step * index,
+					];
+				})
+			);
+		}
+		console.log(event.target.value, min, max);
+		setColorScaleSelect(event.target.value);
 	};
 
 	const handleBlur = (event) => {
@@ -181,8 +209,8 @@ const Visualize = () => {
 			.then((res) => {
 				console.log(res);
 				try {
-					console.log(res.data.stats.min_date);
-					console.log(res.data.stats.max_date);
+					//console.log(res.data.stats.min_date);
+					//console.log(res.data.stats.max_date);
 					const maxDate = new Date(res.data.stats.max_date);
 					const minDate = new Date(res.data.stats.min_date);
 					setDateInteval({
@@ -198,23 +226,47 @@ const Visualize = () => {
 	}, []);
 
 	// On slider index change data is interpolated
-	useEffect(() => interpolate(data), [slider, limits, room]);
+	useEffect(() => interpolate(data), [slider, limits, room, colorScale]);
 
 	const handleFetch = () => {
 		// add checks
 		//if (!isEmpty(interpolationInterval) && ! isEmpty(aggregate))
 		//TODO: Change
 		const req = {
-			//ltd: value[0].toISOString(),
-			//gtd: value[1].toISOString(),
-			ltd: '2021-01-12T14:19:26',
-			gtd: '2021-04-17T14:19:26',
+			lte: value[0].toISOString(),
+			gte: value[1].toISOString(),
+			//lte: '2021-01-12T14:19:26',
+			//gte: '2021-04-17T14:19:26',
 			aggregate: aggregate,
 			interval: interpolationInterval,
 		};
 
-		API.post(`/visualization/${id}/data/`, req)
+		if (req.aggregate === '') {
+			enqueueSnackbar('Select interval when trying to fetch data', {
+				variant: 'warning',
+			});
+			return;
+		}
+
+		if (req.aggregate === '') {
+			enqueueSnackbar('Select aggregate when trying to fetch data', {
+				variant: 'warning',
+			});
+			return;
+		}
+
+		if (value[0] === null || value[1] === null) {
+			enqueueSnackbar('Select date interval when trying to fetch data', {
+				variant: 'warning',
+			});
+			return;
+		}
+
+		API.get(`/visualization/${id}/data/`, { params: req })
 			.then((res) => {
+				enqueueSnackbar('Data fetched', {
+					variant: 'success',
+				});
 				console.log(res);
 				setData((data) => ({
 					...data,
@@ -222,12 +274,21 @@ const Visualize = () => {
 					sensorDataMin: res.data.min_val,
 					sensorDataMax: res.data.max_val,
 				}));
+
+				if (res.data.values.length === 0) {
+					setInterpolation({
+						render: false,
+						message: 'No data for interpolation',
+					});
+				} else {
+					setSliderPosition(0);
+				}
 				// Scale colors
 				const min = res.data.min_val;
 				const max = res.data.max_val;
 				const step = (max - min) / COLOR_SCALE_LENGTH;
 				let colors = colormap({
-					colormap: 'hot',
+					colormap: colorScaleSelect,
 					nshades: COLOR_SCALE_LENGTH,
 					format: 'rgb',
 					alpha: 1,
@@ -244,13 +305,26 @@ const Visualize = () => {
 				);
 			})
 			.catch((err) => {
+				enqueueSnackbar('Data successfully interpolated', {
+					variant: 'success',
+				});
 				console.log(err);
 			});
 	};
 
 	const interpolate = (data) => {
-		console.log('room', room);
-		console.log('sensors', data.sensors);
+		console.log(data);
+		if (data.sensorData.length === 0) {
+			setInterpolation({
+				render: false,
+				message: 'No data for interpolation',
+			});
+			enqueueSnackbar('Fetch data to visualize');
+			return null;
+		}
+
+		//console.log('room', room);
+		//console.log('sensors', data.sensors);
 
 		var x = [];
 		var y = [];
@@ -262,8 +336,14 @@ const Visualize = () => {
 			setInterpolation({
 				render: false,
 				message:
-					'Room not selected or no rooms 	available for this visualization.',
+					'Room not selected or no rooms available for this visualization.',
 			});
+			enqueueSnackbar(
+				'Room not selected or no rooms available for this visualization.',
+				{
+					variant: 'warning',
+				}
+			);
 			return null;
 		}
 
@@ -279,6 +359,9 @@ const Visualize = () => {
 				render: false,
 				message: 'Room needs to have more than 3 sensors placed',
 			});
+			enqueueSnackbar('Room needs to have more than 3 sensors placed', {
+				variant: 'warning',
+			});
 			return null;
 		}
 
@@ -286,6 +369,9 @@ const Visualize = () => {
 			setInterpolation({
 				render: false,
 				message: 'No data for interpolation',
+			});
+			enqueueSnackbar('No data for interpolation', {
+				variant: 'warning',
 			});
 			return null;
 		}
@@ -319,6 +405,9 @@ const Visualize = () => {
 				render: false,
 				message: 'Unable to parse sensors for current data.',
 			});
+			enqueueSnackbar('Unable to parse sensors for current data', {
+				variant: 'warning',
+			});
 			return null;
 		}
 		// Find sensors that are in room and in measured data
@@ -328,7 +417,9 @@ const Visualize = () => {
 				render: false,
 				message: 'Not enough data for interpolation',
 			});
-
+			enqueueSnackbar('Not enough data for interpolation', {
+				variant: 'warning',
+			});
 			return null;
 		}
 		const variogram = krigging.train(val, x, y, 'spherical', 0, 100);
@@ -350,10 +441,10 @@ const Visualize = () => {
 			for (let j = 0; j < room.width; j++) {
 				var predicted = 0;
 				if (limits.isKrigging) {
-					predicted = krigging.predict(j, i, variogram).toFixed(3);
+					predicted = krigging.predict(j, i, variogram);
 				} else {
 					predicted = idw(j, i, x, y, val, 2);
-					predicted = predicted.toFixed(3);
+					predicted = predicted;
 				}
 
 				if (predicted < min) {
@@ -364,7 +455,7 @@ const Visualize = () => {
 					max = predicted;
 				}
 
-				tmpArr.push(predicted);
+				tmpArr.push(predicted.toPrecision(3));
 
 				if (limits.isMaxEnabled) {
 					if (predicted >= limits.max) {
@@ -398,29 +489,52 @@ const Visualize = () => {
 			}
 		});
 
-		setIndcatorIndex({
-			min: indexes.at(0),
-			max: indexes.at(-1),
-			viewIndicator: true,
-		});
-		console.log('full', colorScale);
-
 		var finalScale = [];
 
-		console.log('filtered', scale);
-
-		if (scale.length > 0) {
-			const len = scale.length;
-			for (var i = 0; i < len; i++) {
-				//console.log(scale[i]);
-				finalScale.push([
-					((1 / (len - 1)) * i).toPrecision(5).toString(),
-					scale[i][0],
-				]);
+		if (scale.length === 0) {
+			var curr = colorScale[0];
+			var curr_index = 0;
+			var diff = Math.abs(min - curr[1]);
+			for (var val = 0; val < colorScale.length; val++) {
+				var newdiff = Math.abs(min - colorScale[val][1]);
+				if (newdiff < diff) {
+					diff = newdiff;
+					curr = colorScale[val];
+					curr_index = val;
+				}
 			}
+			scale.push(curr);
+			setIndcatorIndex({
+				min: curr_index,
+				max: curr_index,
+				viewIndicator: true,
+			});
+
+			finalScale.push([0, curr[0]], [1, curr[0]]);
 		} else {
-			finalScale = 'Jet';
+			setIndcatorIndex({
+				min: indexes.at(0),
+				max: indexes.at(-1),
+				viewIndicator: true,
+			});
+
+			if (scale.length > 0) {
+				const len = scale.length;
+				for (var i = 0; i < len; i++) {
+					//console.log(scale[i]);
+					finalScale.push([
+						((1 / (len - 1)) * i).toPrecision(5).toString(),
+						scale[i][0],
+					]);
+				}
+			} else {
+				finalScale = 'Jet';
+			}
 		}
+
+		console.log('full', colorScale);
+
+		console.log('filtered', scale);
 
 		console.log('scaled scale', finalScale);
 
@@ -497,7 +611,6 @@ const Visualize = () => {
 			justifyContent='center'
 			sx={{
 				flexGrow: 1,
-				height: '100%',
 			}}
 		>
 			<Box
@@ -506,21 +619,50 @@ const Visualize = () => {
 				alignItems='center'
 				justifyContent='center'
 				flexDirection='column'
-				flexGrow={1}
+				sx={{ flexGrow: 1 }}
 			>
+				<Stack
+					direction='row'
+					justifyContent='space-around'
+					alignItems='center'
+					sx={{ m: 1, width: 1, flexGrow: 1 }}
+				>
+					<Typography variant='body2'>
+						{data.sensorData.length > 0
+							? `Min: ${Object.keys(
+									data.sensorData[0]
+							  ).toString()}`
+							: ''}
+					</Typography>
+					<Typography variant='body2'>
+						{data.sensorData.length > 0 &&
+						data.sensorData[slider] !== undefined
+							? `${Object.keys(
+									data.sensorData[slider]
+							  ).toString()}`
+							: ''}
+					</Typography>
+					<Typography variant='body2'>
+						{data.sensorData.length > 0 &&
+						data.sensorData[slider] !== undefined
+							? `Max: ${Object.keys(
+									data.sensorData[data.sensorData.length - 1]
+							  ).toString()}`
+							: ''}
+					</Typography>
+				</Stack>
 				<Stack
 					direction='row'
 					justifyContent='center'
 					alignItems='center'
-					flexGrow={1}
-					sx={{ m: 1, width: 1 }}
+					sx={{ m: 1, width: 1, flexGrow: 1 }}
 				>
 					<IconButton aria-label='delete' size='large'>
 						<ChevronLefttIcon fontSize='inherit' />
 					</IconButton>
 
 					<Slider
-						flexGrow={1}
+						sx={{ flexGrow: 1 }}
 						value={slider}
 						step={1}
 						min={0}
@@ -580,15 +722,17 @@ const Visualize = () => {
 										color: 'black',
 									},
 								},
-								title: data.sensorData.length
-									? Object.keys(
-											data.sensorData[slider]
-									  ).toString()
-									: 'No data available for this plot',
+								title:
+									data.sensorData.length &&
+									data.sensorData[slider] !== undefined
+										? Object.keys(
+												data.sensorData[slider]
+										  ).toString()
+										: 'No data available for this plot',
 							}}
 							config={{ displayModeBar: false }}
 						/>
-						<Stage width={800} height={50}>
+						<Stage width={800} height={65}>
 							<Layer>
 								<Rect
 									width={800}
@@ -604,26 +748,8 @@ const Visualize = () => {
 										x: 800,
 										y: 0,
 									}}
-									fillLinearGradientColorStops={
-										/*
-								colorScale.length > 0
-									? console.log(
-											colorScale.reduce((acc, cur) => {
-												console.log(acc, cur);
-												return acc.concat([
-													(
-														(cur[1] -
-															data.sensorDataMin) /
-														(data.sensorDataMax -
-															data.sensorDataMin)
-													).toPrecision(5),
-													cur[0],
-												]);
-											})
-									  )
-									: []
-										*/
-										colorScale.flatMap((v) => [
+									fillLinearGradientColorStops={colorScale.flatMap(
+										(v) => [
 											1 -
 												(
 													(v[1] -
@@ -632,17 +758,17 @@ const Visualize = () => {
 														data.sensorDataMin)
 												).toPrecision(5),
 											v[0],
-										])
-									}
+										]
+									)}
 								/>
 								<Text
 									x={10}
-									y={35}
+									y={45}
 									text={`${data.sensorDataMax}`}
 								/>
 								<Text
 									x={770}
-									y={35}
+									y={45}
 									text={`${data.sensorDataMin}`}
 								/>
 								{indicatorIndex.viewIndicator ? (
@@ -699,8 +825,8 @@ const Visualize = () => {
 			<Drawer
 				variant='permanent'
 				anchor='right'
-				alignItems='center'
 				sx={{
+					alignItems: 'center',
 					width: 330,
 					flexShrink: 0,
 					'& .MuiDrawer-paper': {
@@ -721,7 +847,7 @@ const Visualize = () => {
 				>
 					<ToggleButton value='hour'>Hourly</ToggleButton>
 					<ToggleButton value='day'>Dialy</ToggleButton>
-					<ToggleButton value='year'>Weekly</ToggleButton>
+					<ToggleButton value='week'>Weekly</ToggleButton>
 					<ToggleButton value='month'>Monthly</ToggleButton>
 				</ToggleButtonGroup>
 				<Typography variant='h6' component='h6'>
@@ -850,7 +976,7 @@ const Visualize = () => {
 					onChange={(event) => {
 						setMinText(event.target.value);
 					}}
-					error={!floatReg.test(minText)}
+					error={!floatReg.test(minText) && limits.isMinEnabled}
 					disabled={!limits.isMinEnabled}
 				/>
 				<FormControlLabel
@@ -889,13 +1015,20 @@ const Visualize = () => {
 					label='IDW / Krigging'
 				/>
 				<Divider sx={{ m: 1, width: 'auto' }} />
-				<Button
-					sx={{ m: 1, width: 'auto' }}
-					variant='contained'
-					onClick={() => interpolate(data)}
-				>
-					Interpolate
-				</Button>
+				<FormControl sx={{ m: 1, width: 'auto' }}>
+					<InputLabel>Color Scale</InputLabel>
+					<Select
+						value={colorScaleSelect}
+						label='Room'
+						onChange={handleScaleChange}
+					>
+						{COLOR_SCALES.map((scale) => (
+							<MenuItem key={scale} value={scale}>
+								{scale}
+							</MenuItem>
+						))}
+					</Select>
+				</FormControl>
 			</Drawer>
 		</Box>
 	);

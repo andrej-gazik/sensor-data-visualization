@@ -1,5 +1,3 @@
-import logo from './logo.svg';
-import './App.css';
 import Sidebar from './Components/Sidebar';
 import { Routes, Route } from 'react-router-dom';
 import RoomCreator from './Components/RoomCreator.js';

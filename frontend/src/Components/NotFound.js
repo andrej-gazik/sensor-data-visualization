@@ -1,10 +1,8 @@
 import React, { useEffect } from 'react';
 
-function NotFound(props) {
-	useEffect(() => {
-		console.log(props);
-	}, []);
-	return <div>NotFound {props.id}</div>;
+function NotFound() {
+	useEffect(() => {}, []);
+	return <div> 404 NotFound</div>;
 }
 
 export default NotFound;

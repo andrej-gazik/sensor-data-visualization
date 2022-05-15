@@ -211,8 +211,8 @@ function Mkt() {
 			<Drawer
 				variant='permanent'
 				anchor='right'
-				alignItems='center'
 				sx={{
+					alignItems: 'center',
 					width: 400,
 					flexShrink: 0,
 					'& .MuiDrawer-paper': {
@@ -233,7 +233,7 @@ function Mkt() {
 				>
 					<ToggleButton value='hour'>Hourly</ToggleButton>
 					<ToggleButton value='day'>Dialy</ToggleButton>
-					<ToggleButton value='year'>Weekly</ToggleButton>
+					<ToggleButton value='week'>Weekly</ToggleButton>
 					<ToggleButton value='month'>Monthly</ToggleButton>
 					<ToggleButton value='year'>Yearly</ToggleButton>
 				</ToggleButtonGroup>

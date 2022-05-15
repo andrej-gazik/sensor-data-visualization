@@ -19,11 +19,7 @@ API.interceptors.response.use(
 		const originalRequest = error.config;
 
 		if (typeof error.response === 'undefined') {
-			alert(
-				'A server/network error occurred. ' +
-					'Looks like CORS might be the problem. ' +
-					'Sorry about this - we will get it fixed shortly.'
-			);
+			alert('Api unavailable');
 			return Promise.reject(error);
 		}
 
@@ -31,7 +27,6 @@ API.interceptors.response.use(
 			error.response.status === 401 &&
 			originalRequest.url === API.baseURL + '/auth/token/refresh/'
 		) {
-			console.log('urls match and something happens');
 			window.location.href = '/login/';
 			return Promise.reject(error);
 		}
@@ -87,7 +82,6 @@ API.interceptors.response.use(
 				window.location.href = '/login/';
 			}
 		}
-		console.log('Iam here');
 		return Promise.reject(error);
 	}
 );

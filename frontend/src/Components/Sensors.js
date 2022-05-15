@@ -99,6 +99,7 @@ const Sensors = () => {
 
 	const handleDragEnd = (e) => {
 		const id = e.target.id();
+		//if (e.target.x() > 10 && e.target.y() > 10 && )
 		setStageSensors((stageSensors) => {
 			return stageSensors.map((sensor) => {
 				if (id === sensor.id.toString()) {
@@ -116,6 +117,13 @@ const Sensors = () => {
 	};
 
 	const handleSensorChange = (event) => {
+		if (event.target.value.length < sensors.length) {
+			var current = new Set(event.target.value);
+			const filtered = sensors.filter((x) => !current.has(x));
+			if (filtered.length > 0 && filtered[0].id === selectedSensor.id)
+				setSelectedSensor('');
+		}
+
 		setSensors(event.target.value);
 	};
 
@@ -236,7 +244,12 @@ const Sensors = () => {
 						MenuProps={MenuProps}
 					>
 						{data.rooms.map((room) => (
-							<MenuItem value={room}>{room.name}</MenuItem>
+							<MenuItem
+								key={`Room ${room.id.toString()}`}
+								value={room}
+							>
+								{room.name}
+							</MenuItem>
 						))}
 					</Select>
 				</FormControl>
@@ -254,7 +267,10 @@ const Sensors = () => {
 						MenuProps={MenuProps}
 					>
 						{data.sensors.map((sensor) => (
-							<MenuItem key={sensor.id.toString()} value={sensor}>
+							<MenuItem
+								key={`Sensor ${sensor.id.toString()}`}
+								value={sensor}
+							>
 								{sensor.name}
 							</MenuItem>
 						))}
@@ -277,17 +293,20 @@ const Sensors = () => {
 							stroke='black'
 						/>
 
-						{stageSensors.map((sensor) => (
-							<Group>
+						{stageSensors.map((sensor, index) => (
+							<Group key={`Group ${index}`}>
 								<Text
-									key={`${sensor.id}`}
-									id={sensor.id}
+									key={`Text ${sensor.id.toString()}`}
+									id={sensor.id.toString()}
 									x={sensor.x + 10}
 									y={sensor.y + 10}
-									offsetX={40}
+									width={100}
+									offsetX={50}
 									offsetY={-10}
 									text={`${sensor.name} ${
-										sensor.alias
+										sensor.alias === null
+											? ''
+											: sensor.alias
 									} x: ${Math.floor(
 										sensor.x / scaleDimensions.ratio
 									)} y: ${Math.floor(
@@ -297,6 +316,7 @@ const Sensors = () => {
 								/>
 								<Circle
 									id={sensor.id.toString()}
+									key={`Circle ${sensor.id.toString()}`}
 									x={sensor.x + 10}
 									y={sensor.y + 10}
 									radius={10}
@@ -316,6 +336,7 @@ const Sensors = () => {
 								{sensor.isDragging ? (
 									<Circle
 										id={sensor.id.toString()}
+										key={`DragCircle ${sensor.id.toString()}`}
 										x={sensor.x + 10}
 										y={sensor.y + 10}
 										radius={10}
@@ -349,7 +370,10 @@ const Sensors = () => {
 						>
 							{sensors.map((sensor) => {
 								return (
-									<MenuItem value={sensor}>
+									<MenuItem
+										key={`EditSelect ${sensor.id}`}
+										value={sensor || ''}
+									>
 										{sensor.name}
 									</MenuItem>
 								);
@@ -370,7 +394,9 @@ const Sensors = () => {
 							),
 						}}
 						value={
-							stageSensors.length > 0 && selectedSensor
+							stageSensors.length > 0 &&
+							selectedSensor &&
+							stageSensors !== undefined
 								? Math.round(
 										stageSensors.find(
 											(sensor) =>
@@ -388,7 +414,9 @@ const Sensors = () => {
 						variant='outlined'
 						autoFocus
 						value={
-							stageSensors.length > 0 && selectedSensor
+							stageSensors.length > 0 &&
+							selectedSensor &&
+							stageSensors !== undefined
 								? Math.round(
 										stageSensors.find(
 											(sensor) =>
@@ -413,12 +441,14 @@ const Sensors = () => {
 						autoFocus
 						onChange={handleSelectedSensorTextChange}
 						value={
-							stageSensors.length > 0 && selectedSensor
+							(stageSensors.length > 0 &&
+							selectedSensor &&
+							stageSensors !== undefined
 								? stageSensors.find(
 										(sensor) =>
 											sensor.id === selectedSensor.id
 								  ).alias
-								: 'No sensor selected' || ''
+								: 'No sensor selected') || ''
 						}
 					/>
 				</Stack>

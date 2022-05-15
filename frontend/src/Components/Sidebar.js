@@ -81,7 +81,7 @@ export default function Sidebar() {
 		console.log(API.baseUrl);
 		API.post('/visualization/', data)
 			.then((res) => {
-				console.log(res);
+				setData((data) => [...data, res.data]);
 				handleDialogClose();
 				enqueueSnackbar('Visualization successfully created', {
 					variant: 'success',
@@ -99,7 +99,11 @@ export default function Sidebar() {
 	const handleChange = (event) => {
 		setSelected(event.target.value);
 		// console.log(pathname);
-		navigate(`/${event.target.value.id}`, { replace: true });
+		console.log(event.target.value);
+		navigate(`/${event.target.value.id}`, {
+			state: pathname,
+			replace: true,
+		});
 	};
 
 	const handleDialogOpen = () => {
@@ -114,9 +118,26 @@ export default function Sidebar() {
 		setOpen(false);
 	};
 
-	const handleLogOut = () => {};
+	const handleLogOut = () => {
+		API.post('/auth/token/blacklist/', {
+			refresh_token: localStorage.getItem('refresh_token'),
+		})
+			.then((res) => {
+				localStorage.removeItem('access_token');
+				localStorage.removeItem('refresh_token');
+				API.defaults.headers['Authorization'] = null;
+				navigate('/login', { replace: true });
+			})
+			.catch((err) => {
+				console.log(err);
+			});
+	};
 
 	useEffect(() => {
+		if (!localStorage.getItem('access_token')) {
+			navigate('/login', { replace: true });
+		}
+
 		API.get('/visualization/')
 			.then((res) => res.data)
 			.then((data) => {
@@ -152,8 +173,11 @@ export default function Sidebar() {
 				<AccountCircleIcon />
 			</Avatar>
 			<p>{`user id: ${
-				parseJwt(localStorage.getItem('access_token'))['user_id']
+				localStorage.getItem('access_token')
+					? parseJwt(localStorage.getItem('access_token'))['user_id']
+					: 'no user'
 			}`}</p>
+
 			<Divider />
 
 			<Button

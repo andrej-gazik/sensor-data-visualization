@@ -124,15 +124,15 @@ INTERVAL_CHOICES_MKT = (
 )
 
 class SensorDataSerializer(serializers.Serializer):
-    gtd = serializers.DateTimeField()
-    ltd = serializers.DateTimeField()
+    gte = serializers.DateTimeField()
+    lte = serializers.DateTimeField()
     aggregate = serializers.ChoiceField(choices=AGGREGATE_CHOICES)
     interval = serializers.ChoiceField(choices=INTERVAL_CHOICES)
 
 
 class MKTSerializer(serializers.Serializer):
-    gtd = serializers.DateTimeField()
-    ltd = serializers.DateTimeField()
+    gte = serializers.DateTimeField()
+    lte = serializers.DateTimeField()
     interval = serializers.ChoiceField(choices=INTERVAL_CHOICES_MKT)
 
 

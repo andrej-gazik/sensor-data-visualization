@@ -3,6 +3,7 @@ import math
 from collections import defaultdict
 
 import pandas as pd
+from pandas.errors import ParserError
 from rest_framework import generics
 from rest_framework import status
 from rest_framework import viewsets
@@ -62,9 +63,6 @@ class RoomListCreateAPIView(generics.ListCreateAPIView):
 
         visualization = get_object_or_404(Visualization, pk=kwargs.get("pk"))
         if serializer.is_valid():
-            if visualization.status == "blank":
-                visualization.status = "room"
-                visualization.save()
             serializer.save(visualization=visualization)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
@@ -105,14 +103,11 @@ class UploadFileAPIView(generics.CreateAPIView):
 
         visualization = get_object_or_404(Visualization, pk=kwargs.get("pk"))
 
-        # Add not
-        # if Room.objects.filter(visualization=kwargs.get('pk')).exists():
-        #   return Response('File was already uploaded', status=status.HTTP_400_BAD_REQUEST)
-        # if not visualization.status == "room":
-        #     return Response(
-        #         {"Detail: File already uploaded or upload criteria not met"},
-        #         status=status.HTTP_400_BAD_REQUEST,
-        #     )
+        if visualization.status == "file":
+            return Response(
+                {"Detail: File already uploaded or upload criteria not met"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if "file" not in request.FILES:
             return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -123,12 +118,18 @@ class UploadFileAPIView(generics.CreateAPIView):
             serializer_class.save(
                 file=request.FILES["file"], visualization=visualization
             )
+
             return res
 
 
 def handle_file_upload(file, visualization):
     # Use bulk create
-    df = pd.read_csv(io.StringIO(file.read().decode("utf-8")), delimiter=",")
+    try:
+        df = pd.read_csv(io.StringIO(file.read().decode("utf-8")), delimiter=",")
+    except Exception as e:
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
     df_validation = validate_df(df)
     print("Data validated")
     if df_validation is not None:
@@ -158,19 +159,6 @@ def handle_file_upload(file, visualization):
             SensorData.objects.bulk_create(insert_model_instances)
             print(f"Chunk {i} insert {(time - datetime.now()).total_seconds()}")
 
-
-        # df_records = df.to_dict("records")
-        # insert_model_instances = [
-        #     SensorData(
-        #         visualization=visualization,
-        #         sensor_name=record["sensor_id"],
-        #         value=record["value"],
-        #         measurement_time=record["time"],
-        #     )
-        #     for record in df_records
-        # ]
-
-
         sensors = df["sensor_id"].unique()
 
         insert_model_instances = [
@@ -198,9 +186,6 @@ upload_file_api_view = UploadFileAPIView.as_view()
 class SensorListCreateAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = SensorSerializer
     queryset = Room.objects.all()
-
-    def validate_ids(self, ids):
-        pass
 
     def get(self, *args, **kwargs):
         queryset = Sensor.objects.filter(visualization=kwargs.get("pk"))
@@ -297,8 +282,8 @@ class SensorDataListAPIView(generics.GenericAPIView):
     def get(self, request, pk):
 
         data = {
-            'gtd': request.GET.get('gtd', None),
-            'ltd': request.GET.get('ltd', None),
+            'gte': request.GET.get('gte', None),
+            'lte': request.GET.get('lte', None),
             'aggregate': request.GET.get('aggregate', None),
             'interval': request.GET.get('interval', None)
         }
@@ -311,8 +296,8 @@ class SensorDataListAPIView(generics.GenericAPIView):
                 pk,
                 validated_data["aggregate"],
                 validated_data["interval"],
-                validated_data["gtd"],
-                validated_data["ltd"],
+                validated_data["gte"],
+                validated_data["lte"],
             )
 
             # No data to return
@@ -350,8 +335,8 @@ class MKTDataListAPIView(generics.GenericAPIView):
         context = super().get_serializer_context()
         context.update(
             {
-                "gtd": self.request.query_params.get('gtn', None),
-                "ltd": self.request.query_params.get('ltd', None),
+                "gte": self.request.query_params.get('gte', None),
+                "lte": self.request.query_params.get('lte', None),
                 "interval": self.request.query_params.get('interval', None),
 
             }
@@ -361,8 +346,8 @@ class MKTDataListAPIView(generics.GenericAPIView):
     def get(self, request, pk):
 
         data = {
-            'gtd': request.GET.get('gtd', None),
-            'ltd': request.GET.get('ltd', None),
+            'gte': request.GET.get('gte', None),
+            'lte': request.GET.get('lte', None),
             'interval': request.GET.get('interval', None)
         }
 
@@ -374,8 +359,8 @@ class MKTDataListAPIView(generics.GenericAPIView):
             data = mkt(
                 pk,
                 validated_data["interval"],
-                validated_data["gtd"],
-                validated_data["ltd"]
+                validated_data["gte"],
+                validated_data["lte"]
             )
 
             result = defaultdict(list)

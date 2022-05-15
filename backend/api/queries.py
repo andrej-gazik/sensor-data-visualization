@@ -2,12 +2,7 @@ from django.db import connection
 from psycopg2.extensions import AsIs
 
 
-def make_query(pk, aggregate, interval, gtd, ltd):
-    # pk = 1
-    # aggregate = 'max'
-    # interval = 'hour'
-    # gtd = '2022-04-11T21:30:07'
-    # ltd = '2018-04-11T21:30:07'
+def make_query(pk, aggregate, interval, gte, lte):
     if aggregate == "none":
         query = """
         SELECT tm, sensor_name, value
@@ -20,7 +15,7 @@ def make_query(pk, aggregate, interval, gtd, ltd):
                 measurement_time,
                 value
             FROM
-                public.api_sensordata
+                api_sensordata
             WHERE
                 measurement_time > %s
                 AND 
@@ -33,8 +28,8 @@ def make_query(pk, aggregate, interval, gtd, ltd):
         ORDER BY 
             tm     
         """
-        parameters = [interval, interval, ltd, gtd, pk]
-
+        parameters = [interval, interval, lte, gte, pk]
+        print(gte, lte)
         with connection.cursor() as cursor:
             cursor.execute(query, parameters)
             rows = cursor.fetchall()
@@ -46,7 +41,7 @@ def make_query(pk, aggregate, interval, gtd, ltd):
                 sensor_name,
                 %s(value)
             FROM
-                public.api_sensordata
+                api_sensordata
             WHERE 
                 measurement_time > %s
                 AND 
@@ -58,7 +53,7 @@ def make_query(pk, aggregate, interval, gtd, ltd):
             ORDER BY
                 tm
         """
-        parameters = [interval, AsIs(aggregate), ltd, gtd, pk]
+        parameters = [interval, AsIs(aggregate), lte, gte, pk]
 
         with connection.cursor() as cursor:
             cursor.execute(query, parameters)
@@ -67,14 +62,14 @@ def make_query(pk, aggregate, interval, gtd, ltd):
             return rows
 
 
-def mkt(pk, interval, gtd, ltd):
+def mkt(pk, interval, gte, lte):
     query = """
     SELECT
         date_trunc(%s, measurement_time) as tm,
         sensor_name,
         (83.14472/0.008314472)/-LN(SUM(EXP((-1.0 * 83.14472)/(0.008314472 * (value + 273.15))))/COUNT(*))-273.15 AS mkt
     FROM 
-        public.api_sensordata 
+        api_sensordata 
     WHERE 
         measurement_time > %s
         AND 
@@ -86,7 +81,7 @@ def mkt(pk, interval, gtd, ltd):
     ORDER BY tm
     """
 
-    parameters = [interval, ltd, gtd, pk]
+    parameters = [interval, lte, gte, pk]
 
     with connection.cursor() as cursor:
         cursor.execute(query, parameters)

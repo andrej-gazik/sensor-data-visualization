@@ -35,7 +35,16 @@ const Upload = () => {
 					});
 					console.log(res);
 				})
-				.catch((error) => console.log(error));
+				.catch((error) => {
+					enqueueSnackbar(
+						'Error parsing data or data already uploaded.',
+						{
+							variant: 'warning',
+						}
+					);
+					console.log(error);
+					setIsLoading(false);
+				});
 		} else {
 			enqueueSnackbar('Please select file before uploading.', {
 				variant: 'warning',
@@ -60,7 +69,11 @@ const Upload = () => {
 	return (
 		<div>
 			<input type='file' accept='.csv' onChange={onFileChange} />
-			<Button variant='contained' onClick={onFileUpload}>
+			<Button
+				variant='contained'
+				onClick={onFileUpload}
+				disabled={isLoading}
+			>
 				Upload
 			</Button>
 			{isLoading ? <LinearProgress sx={{ m: 1 }} /> : null}

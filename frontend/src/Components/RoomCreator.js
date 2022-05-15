@@ -57,8 +57,10 @@ const RoomCreator = () => {
 				console.log(data);
 				enqueueSnackbar('Room created', { variant: 'success' });
 				setRooms([...rooms, data]);
+				handleClose();
 			})
 			.catch((err) => {
+				enqueueSnackbar('Room not created', { variant: 'error' });
 				console.log(err);
 			});
 	};
