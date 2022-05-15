@@ -87,7 +87,4 @@ def mkt(pk, interval, gte, lte):
         cursor.execute(query, parameters)
         rows = cursor.fetchall()
 
-        with open('output.txt', 'w') as f:
-            f.writelines(str(cursor))
-
         return rows
