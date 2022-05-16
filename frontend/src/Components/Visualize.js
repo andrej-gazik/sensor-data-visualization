@@ -658,7 +658,18 @@ const Visualize = () => {
 					sx={{ m: 1, width: 1, flexGrow: 1 }}
 				>
 					<IconButton aria-label='delete' size='large'>
-						<ChevronLefttIcon fontSize='inherit' />
+						<ChevronLefttIcon
+							fontSize='inherit'
+							onClick={() => {
+								if (slider - 1 < 0) {
+									setSliderPosition(
+										data.sensorData.length - 1
+									);
+								} else {
+									setSliderPosition(slider - 1);
+								}
+							}}
+						/>
 					</IconButton>
 
 					<Slider
@@ -675,7 +686,13 @@ const Visualize = () => {
 					<IconButton
 						aria-label='delete'
 						size='large'
-						onClick={() => {}}
+						onClick={() => {
+							if (slider + 1 > data.sensorData.length - 1) {
+								setSliderPosition(0);
+							} else {
+								setSliderPosition(slider + 1);
+							}
+						}}
 					>
 						<ChevronRightIcon fontSize='inherit' />
 					</IconButton>
