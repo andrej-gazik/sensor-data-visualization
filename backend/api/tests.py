@@ -165,31 +165,6 @@ class DataTest(APITestCase):
                                 4.4,5,2020-12-17 13:49:13.000000
                                 5.5,6,2020-12-17 13:50:46.000000
                                 """
-        self.data_invalid_sensor = b"""value,sensor_id,datetime
-                                0.0,INVALID_SENSOR,2020-12-17 13:43:03.000000
-                                1.1,a,2020-12-17 13:44:09.000000
-                                2.2,b,2020-12-17 13:45:54.000000
-                                3.3,c,2020-12-17 13:48:07.000000
-                                4.4,5,2020-12-17 13:49:13.000000
-                                5.5,6,2020-12-17 13:50:46.000000
-                                """
-        self.data_invalid_value = b"""value,sensor_id,datetime
-                                INVALID_TEMP,1,2020-12-17 13:43:03.000000
-                                1.1,2,2020-12-17 13:44:09.000000
-                                2.2,3,2020-12-17 13:45:54.000000
-                                3.3,4,2020-12-17 13:48:07.000000
-                                4.4,5,2020-12-17 13:49:13.000000
-                                5.5,6,2020-12-17 13:50:46.000000
-                                """
-
-        self.data_invalid_date = b"""value,sensor_id,datetime
-                                0.0,1,2020-12-17 13:43:03.000000
-                                1.1,2,1,asdf
-                                2.2,3,2020-12-17 13:45:54.000000
-                                3.3,4,2020-12-17 13:48:07.000000
-                                4.4,5,2020-12-17 13:49:13.000000
-                                5.5,6,2020-12-17 13:50:46.000000
-                                """
 
     def test_data_upload_valid(self):
         file = SimpleUploadedFile("test.csv", self.data_valid)
@@ -199,22 +174,6 @@ class DataTest(APITestCase):
         self.assertEqual(SensorData.objects.filter(visualization_id=self.viz.id).count(), 6)
         self.assertEqual(VisualizationStats.objects.filter(visualization_id=self.viz.id).count(), 1)
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-
-    def test_data_invalid_value_column(self):
-        file = SimpleUploadedFile("test.csv", self.data_invalid_value)
-        url = reverse('file-upload', kwargs={'pk': self.viz.id})
-        res = self.client.post(url, {'file': file})
-
-    def test_data_invalid_sensor_id_column(self):
-        file = SimpleUploadedFile("test.csv", self.data_invalid_sensor)
-        url = reverse('file-upload', kwargs={'pk': self.viz.id})
-        res = self.client.post(url, {'file': file})
-
-    def test_data_invalid_date_column(self):
-        file = SimpleUploadedFile("test.csv", self.data_invalid_date)
-        url = reverse('file-upload', kwargs={'pk': self.viz.id})
-        res = self.client.post(url, {'file': file})
-
 
 class SensorTest(APITestCase):
     def setUp(self):

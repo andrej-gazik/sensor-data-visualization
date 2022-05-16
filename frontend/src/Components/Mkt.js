@@ -37,6 +37,7 @@ import Paper from '@mui/material/Paper';
 function Mkt() {
 	const { id } = useParams();
 
+	const { enqueueSnackbar, closeSnackbar } = useSnackbar();
 	const [dateRange, setDateRange] = React.useState(['', '']);
 	const [interpolationInterval, setInterpolationInterval] =
 		React.useState('');
@@ -66,15 +67,46 @@ function Mkt() {
 	};
 
 	const handleFetch = () => {
-		API.get(
-			'/visualization/1/mkt/?gtd=2022-04-11T21:30:07&ltd=2018-04-11T21:30:07&interval=day'
-		)
+		const payload = {
+			gte: dateRange[1].toISOString(),
+			lte: dateRange[0].toISOString(),
+			interval: interpolationInterval,
+		};
+		console.log(payload);
+		if (payload.interval === '') {
+			enqueueSnackbar('Select interval when trying to fetch data', {
+				variant: 'warning',
+			});
+			return;
+		}
+
+		if (payload.aggregate === '') {
+			enqueueSnackbar('Select aggregate when trying to fetch data', {
+				variant: 'warning',
+			});
+			return;
+		}
+
+		if (dateRange[0] === null || dateRange[1] === null) {
+			enqueueSnackbar('Select date interval when trying to fetch data', {
+				variant: 'warning',
+			});
+			return;
+		}
+
+		API.get('/visualization/1/mkt/', { params: payload })
 			.then((res) => {
 				console.log(res);
+				enqueueSnackbar('Data fetched', {
+					variant: 'success',
+				});
 				setData((data) => ({ ...data, mkt: res.data }));
 			})
 			.catch((err) => {
 				console.log(err);
+				enqueueSnackbar('Unable to fetch data', {
+					variant: 'error',
+				});
 			});
 	};
 

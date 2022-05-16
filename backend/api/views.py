@@ -3,7 +3,6 @@ import math
 from collections import defaultdict
 
 import pandas as pd
-from pandas.errors import ParserError
 from rest_framework import generics
 from rest_framework import status
 from rest_framework import viewsets
