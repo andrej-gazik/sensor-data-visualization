@@ -1,11 +1,3 @@
-/*!
- * author: sakitam-fdd <smilefdd@gmail.com>
- * @sakitam-gis/kriging v0.0.1
- * build-time: 2019-5-7 13:51
- * LICENSE: MIT
- * (c) 2019-2019 https://github.com/sakitam-gis/kriging.js
- */
-
 function max(source) {
 	return Math.max.apply(null, source);
 }
